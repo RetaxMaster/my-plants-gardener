@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.tgz
+# Per-session scratch workspaces + any injected context (carries a token) are never committed.
+.sessions/
+gardener-context.json
+context/
+# The full care-engine.md is synced in by deploy/setup, never committed here.
+reference/
