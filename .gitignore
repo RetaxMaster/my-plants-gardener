@@ -1,5 +1,7 @@
 node_modules/
-.env
+# Any .env variant is ignored (.env, .env.local, .env.bak, ...); .env.example stays tracked.
+.env.*
+!.env.example
 *.tgz
 # Per-session scratch workspaces + any injected context (carries a token) are never committed.
 .sessions/
@@ -7,3 +9,13 @@ gardener-context.json
 context/
 # The full care-engine.md is synced in by deploy/setup, never committed here.
 reference/
+# A local interactive-session permission grant must never land beside the tracked .claude/agents guides.
+.claude/settings.local.json
+# .env.example points at the live local DB; a quick mysqldump while debugging is the obvious artifact.
+*.sql
+*.dump
+# Editor swap/backup files, and Node fatal-error reports (mysql2/execa can write these to cwd).
+*.swp
+*.swo
+*~
+report.*.json
