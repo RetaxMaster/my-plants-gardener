@@ -1,0 +1,33 @@
+{
+  "name": "@retaxmaster/my-plants-gardener",
+  "version": "0.1.0",
+  "description": "Claude/Codex-driven gardener agent that administers one owner's whole garden.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dump-garden": "tsx scripts/dump-garden-context.ts",
+    "read-plant": "tsx scripts/read-plant.ts",
+    "propose": "tsx scripts/propose.ts",
+    "agents:generate": "agent-kit-codex-agents",
+    "agents:check": "agent-kit-codex-agents --check",
+    "agents:check-schema": "agent-kit-codex-spawn-schema",
+    "tools:generate": "tsx scripts/generate-agent-tools.ts",
+    "tools:check": "tsx scripts/generate-agent-tools.ts --check",
+    "test": "npm run agents:check && npm run tools:check && npm run typecheck && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@retaxmaster/my-plants-species-schema": "file:../my-plants-species-schema/retaxmaster-my-plants-species-schema-0.12.0.tgz",
+    "mysql2": "^3.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "execa": "^9.6.1",
+    "smol-toml": "^1.7.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "yaml": "^2.9.0"
+  }
+}
