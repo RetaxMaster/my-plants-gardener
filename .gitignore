@@ -1,5 +1,7 @@
 node_modules/
-# Any .env variant is ignored (.env, .env.local, .env.bak, ...); .env.example stays tracked.
+# Every .env form is ignored: the bare file AND every variant (.env.local, .env.bak, ...).
+# `.env.*` alone does NOT match a bare `.env` — both lines are required, and .env.example is negated back in.
+.env
 .env.*
 !.env.example
 *.tgz
