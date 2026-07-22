@@ -4,9 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import * as queries from './queries.js';
 
-// THE GARDENER'S REAL READ BOUNDARY. The route allowlist is tiny and does not carry the bulk reads, so the
-// boundary is enforced HERE, by construction: every builder takes ownerId FIRST and emits `owner_id = ?` as
-// a mandatory predicate. A builder that could omit it is a cross-owner read waiting to happen.
+// THE GARDENER'S REAL READ BOUNDARY. The route allowlist is tiny and does not carry the bulk reads. The
+// REAL guarantee now lives in scripts/lib/sql-query.ts's `assembleOwnerScopedQuery` (see its file banner
+// for the two-round history of why a naming/regex check on the SQL string, and later a free-form `select`
+// string, both turned out to be discipline rather than construction — a UNION or a hand-rolled bypass could
+// satisfy both). This suite's naming/regex loop below is kept as a SECOND, independent net — it catches a
+// builder that goes through the constructor but is handed a non-owner ref, which the structural scans at
+// the bottom of this file would not catch on their own.
 const BUILDERS = Object.entries(queries).filter(([n]) => n.startsWith('build') && n.endsWith('Query'));
 
 describe('owner-anchored query layer', () => {
@@ -28,24 +32,29 @@ describe('owner-anchored query layer', () => {
 });
 
 describe('garden-wide builders (Task 3.6)', () => {
-  it('buildCitiesQuery orders by name and reads the primary flag', () => {
+  it('buildCitiesQuery — exact SQL, owner-qualified, orders by name', () => {
     const q = queries.buildCitiesQuery('OWNER_1');
-    expect(q.sql).toContain('FROM cities');
-    expect(q.sql).toContain('is_primary');
+    expect(q.sql).toBe(
+      'SELECT id, name, latitude, longitude, timezone, is_primary FROM cities WHERE cities.owner_id = ? ORDER BY name',
+    );
     expect(q.params).toEqual(['OWNER_1']);
   });
 
-  it('buildPlacesQuery reads the place-level climate fields', () => {
+  it('buildPlacesQuery — exact SQL, reads the place-level climate fields', () => {
     const q = queries.buildPlacesQuery('OWNER_1');
-    expect(q.sql).toContain('FROM places');
-    expect(q.sql).toContain('climate_controlled');
+    expect(q.sql).toBe(
+      'SELECT id, city_id, name, indoor, light_type, climate_controlled, humidity_character, ' +
+        'indoor_temp_min_c, indoor_temp_max_c, airflow FROM places WHERE places.owner_id = ? ORDER BY name',
+    );
     expect(q.params).toEqual(['OWNER_1']);
   });
 
-  it('buildPlantsQuery orders by acquisition date', () => {
+  it('buildPlantsQuery — exact SQL, orders by acquisition date', () => {
     const q = queries.buildPlantsQuery('OWNER_1');
-    expect(q.sql).toContain('FROM plants');
-    expect(q.sql).toContain('ORDER BY acquired_on');
+    expect(q.sql).toBe(
+      'SELECT id, place_id, species_slug, nickname, acquired_on, cover_image_url FROM plants ' +
+        'WHERE plants.owner_id = ? ORDER BY acquired_on',
+    );
     expect(q.params).toEqual(['OWNER_1']);
   });
 
@@ -76,10 +85,11 @@ describe('garden-wide builders (Task 3.6)', () => {
   // would leak another owner's row here instead of returning [].
   //
   // This is deliberately exercised ONLY through loadCities, not duplicated once per loader: every builder
-  // in this module is now a thin caller of the shared `assembleOwnerScopedQuery` constructor, and the
-  // "exactly one WHERE in the module" test below proves structurally that there is no OTHER way to build a
-  // query here. So this single end-to-end proof of the constructor's real, executed behavior generalizes to
-  // every other builder — six copies of the same fixture test would assert the same fact six times over.
+  // in this module is a thin caller of the shared `assembleOwnerScopedQuery` constructor (scripts/lib/
+  // sql-query.ts), which is the ONLY function able to produce a SqlQuery without an explicit unsafe cast —
+  // see that file for the full guarantee. This single end-to-end proof of the constructor's real, executed
+  // behavior generalizes to every other builder; six copies of the same fixture test would assert the same
+  // fact six times over.
   it('a query issued with another owner id returns nothing from a param-honoring fake DB', async () => {
     const FIXTURE = [
       { id: 'city-1', owner_id: 'OWNER_1', name: 'CDMX' },
@@ -97,105 +107,76 @@ describe('garden-wide builders (Task 3.6)', () => {
 });
 
 describe('per-plant and species builders (Task 3.7)', () => {
-  it('buildPlantDetailQuery still anchors on the owner, not only on the plant id', () => {
+  it('buildPlantDetailQuery — exact SQL, anchors on the owner via the plants alias', () => {
     const q = queries.buildPlantDetailQuery('OWNER_1', 'PLANT_9');
-    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.sql).toBe(
+      'SELECT p.id, p.place_id, p.species_slug, p.nickname, p.acquired_on FROM plants p ' +
+        'WHERE p.owner_id = ? AND (p.id = ?)',
+    );
     expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
   });
 
-  it('buildPlantProfileQuery reaches the profile through the owned plant, not the profile table alone', () => {
+  it('buildPlantProfileQuery — resolves ownership through the JOINed plant, not plant_profiles itself', () => {
     const q = queries.buildPlantProfileQuery('OWNER_1', 'PLANT_9');
-    expect(q.sql).toContain('plant_profiles');
-    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.sql).toBe(
+      'SELECT pr.* FROM plant_profiles pr JOIN plants p ON p.id = pr.plant_id WHERE p.owner_id = ? AND (p.id = ?)',
+    );
     expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
   });
 
-  it('buildSpeciesForOwnedPlantQuery reaches the (global) species catalogue only through an owned plant', () => {
+  it('buildSpeciesForOwnedPlantQuery — reaches the (global) species catalogue only through an owned plant', () => {
     const q = queries.buildSpeciesForOwnedPlantQuery('OWNER_1', 'PLANT_9');
-    expect(q.sql).toContain('species');
-    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.sql).toBe(
+      'SELECT s.* FROM species s JOIN plants p ON p.species_slug = s.slug WHERE p.owner_id = ? AND (p.id = ?)',
+    );
     expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
   });
 });
 
 describe('clinical-records read (Task 3.8, gardener is READ-ONLY here)', () => {
-  it('buildClinicalRecordsQuery anchors on the owner and windows by date', () => {
+  it('buildClinicalRecordsQuery — exact SQL, anchors on the owner and windows by date', () => {
     const q = queries.buildClinicalRecordsQuery('OWNER_1', 'PLANT_9', 3);
-    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
-    expect(q.params.slice(0, 2)).toEqual(['OWNER_1', 'PLANT_9']);
+    expect(q.sql).toBe(
+      'SELECT r.id, r.recorded_on, r.body FROM plant_clinical_records r WHERE r.owner_id = ? ' +
+        'AND (r.plant_id = ? AND r.recorded_on >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)) ORDER BY r.recorded_on DESC',
+    );
+    expect(q.params).toEqual(['OWNER_1', 'PLANT_9', 3]);
   });
 
   it('windows DB-side with DATE_SUB/CURDATE — never a bound JS date (project MariaDB date rule)', () => {
     const q = queries.buildClinicalRecordsQuery('OWNER_1', 'PLANT_9', 3);
     expect(q.sql).toContain('DATE_SUB(CURDATE(), INTERVAL ? MONTH)');
-    expect(q.params).toEqual(['OWNER_1', 'PLANT_9', 3]);
     expect(q.params.every((p) => typeof p !== 'object')).toBe(true);
     expect(q.sql).not.toMatch(/toISOString|\dT\d\d:/);
   });
 });
 
-// The construction guarantee itself. A first review round showed that "binds owner_id first + the SQL
-// contains the substring owner_id = ?" is DISCIPLINE (a naming/regex convention every author must remember
-// to honor), not CONSTRUCTION (a shape the language/API makes impossible to violate). The reviewer's
-// counter-example — `WHERE owner_id = ? OR 1=1` — satisfied every prior guard and still returned every
-// owner's rows. These tests prove the shared constructor genuinely closes that gap.
-describe('assembleOwnerScopedQuery — the ONLY place a WHERE clause is written', () => {
-  it('emits the owner predicate first, with ownerId bound first, when there is no extra condition', () => {
-    const q = queries.assembleOwnerScopedQuery({ select: 'SELECT id FROM widgets', ownerColumn: 'owner_id', ownerId: 'OWNER_1' });
-    expect(q.sql).toBe('SELECT id FROM widgets WHERE owner_id = ?');
-    expect(q.params).toEqual(['OWNER_1']);
-  });
-
-  it('ANDs a caller-supplied extra condition onto the owner predicate, wrapped in parentheses', () => {
-    const q = queries.assembleOwnerScopedQuery({
-      select: 'SELECT id FROM widgets',
-      ownerColumn: 'owner_id',
-      ownerId: 'OWNER_1',
-      extra: { condition: 'id = ?', params: ['WIDGET_1'] },
-    });
-    expect(q.sql).toBe('SELECT id FROM widgets WHERE owner_id = ? AND (id = ?)');
-    expect(q.params).toEqual(['OWNER_1', 'WIDGET_1']);
-  });
-
-  // THE reviewer's attack, reproduced through the sanctioned API rather than as a hand-rolled bypass: the
-  // most natural way to try to slip a tautology in is to put it in `extra`. It still cannot escape, because
-  // it lands INSIDE the parentheses this constructor wraps around `extra` — `owner_id = ? AND (1=1)` is
-  // logically `owner_id = ? AND true`, which is exactly `owner_id = ?`: AND can only narrow a result set,
-  // never widen it, no matter what the parenthesized side evaluates to. Quoting the generated SQL directly.
-  it('traps a tautology placed in `extra` inside its own parentheses — it can only narrow, never widen', () => {
-    const q = queries.assembleOwnerScopedQuery({
-      select: 'SELECT id, name FROM plants',
-      ownerColumn: 'owner_id',
-      ownerId: 'OWNER_1',
-      extra: { condition: 'id = ? OR 1=1', params: ['PLANT_1'] },
-    });
-    expect(q.sql).toBe('SELECT id, name FROM plants WHERE owner_id = ? AND (id = ? OR 1=1)');
-    expect(q.params).toEqual(['OWNER_1', 'PLANT_1']);
-    // The owner predicate is OUTSIDE the parens and ANDed — never ORed — onto whatever is inside them.
-    expect(q.sql).toMatch(/^SELECT .* WHERE owner_id = \? AND \(.*\)$/);
-  });
-});
-
-// The structural guard that actually rules out a hand-rolled bypass: if a future (or hostile) author adds
-// a builder that returns `{ sql, params }` directly instead of calling assembleOwnerScopedQuery, that
-// builder writes its OWN "WHERE" — which is exactly how the reviewer's `buildPlantsFullListQuery` attack
-// got past the naming/regex guards (it bound owner_id first and contained the substring "owner_id = ?",
-// while ALSO containing an unguarded "OR 1=1" the regex could not see).
-//
-// HONESTY NOTE: this is a scan of this file's OWN SOURCE TEXT (comments stripped), not a static analysis of
-// the compiled/executed query plan. It proves "no code path in this module writes a second WHERE", which is
-// exactly the property needed here (every builder is a thin caller of one constructor) — but it would not
-// catch, say, a WHERE assembled by string concatenation from fragments that individually avoid the literal
-// token "WHERE". That residual is accepted for this module: every builder above is a static, non-computed
-// SQL template, so there is no fragment-concatenation path left to word around this check.
-describe('module-source structural guard — exactly one WHERE-writing site', () => {
-  it('emits the literal token WHERE exactly once in this file (inside assembleOwnerScopedQuery)', () => {
+// Two structural, source-text scans over THIS file, kept as DEFENCE IN DEPTH — the real guarantee lives in
+// scripts/lib/sql-query.ts (the constructor + the branded SqlQuery type), not here. See that file's banner
+// for why a naming/regex check and a free-form `select` string both turned out to be discipline rather than
+// construction across two prior review rounds, and why the fix was to (a) remove every free-form SQL-shape
+// parameter from the builders in THIS file, and (b) brand SqlQuery so it cannot be fabricated by a literal
+// added here without an unmistakable unsafe cast.
+describe('module-source structural guards over queries.ts (defence in depth, not the guarantee)', () => {
+  it('never contains the literal token WHERE — no builder here should ever need to write one', () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(join(here, 'queries.ts'), 'utf8');
-    const withoutComments = source
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/.*$/gm, '');
+    const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     const whereOccurrences = withoutComments.match(/\bWHERE\b/gi) ?? [];
-    expect(whereOccurrences.length).toBe(1);
+    expect(whereOccurrences).toEqual([]);
+  });
+
+  // This is what actually rules out a bypass builder that hand-rolls `{ sql, params }` and casts it to
+  // SqlQuery, regardless of how its SQL string was spelled at runtime (the round-2 attack that defeated the
+  // WHERE-token scan by building the keyword from `'WHE' + 'RE'`): producing a SqlQuery outside sql-query.ts
+  // requires exactly this kind of cast (verified directly against this project's own tsc — a single
+  // `as SqlQuery` does not compile; only `as unknown as SqlQuery`/`as any` does), so its ABSENCE from this
+  // file is what proves every SqlQuery here came from the sanctioned constructor.
+  it('never contains an unsafe cast to SqlQuery — the only way left to fabricate one outside sql-query.ts', () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, 'queries.ts'), 'utf8');
+    const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const unsafeCasts = withoutComments.match(/as\s+unknown\s+as\s+SqlQuery|as\s+any\b/g) ?? [];
+    expect(unsafeCasts).toEqual([]);
   });
 });
