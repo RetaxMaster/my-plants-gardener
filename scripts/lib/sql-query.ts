@@ -32,9 +32,12 @@
 //       though the VALUE `Object.assign` actually builds at runtime never ran `SqlQuery`'s constructor and
 //       has no working private field). The type system does not catch this one. See below for what does.
 //
-// ROUND 4 (this design) replaces the symbol-branded plain object with a real class carrying a `#private`
-// instance field, constructible only via `new` inside this class (the constructor is `private`, callable
-// only from `SqlQuery`'s own static `assemble` method). This closes what a plain branded object could not:
+// ROUND 4 replaced the symbol-branded plain object with a real class carrying a `#private` instance field
+// and a `private` constructor. ROUND 5 then showed that is still not enough on its own — `private` restricts
+// the `new X(...)` SYNTAX, and `Reflect.construct(SqlQuery, [...])` bypasses the syntax while genuinely
+// running the constructor, so it installs a real `#brand`. The registry below (ASSEMBLED) is what actually
+// closes it, by asking about PROVENANCE rather than shape. The class still buys the following, which the
+// plain branded object could not:
 //   - A bare object literal or a spread of a real instance is REJECTED AT COMPILE TIME (verified: TS2741,
 //     "Property '#brand' is missing" — see the `@ts-expect-error` tests). Private class fields are excluded
 //     from spread's inferred type by TypeScript itself, which a `unique symbol` property is not.
@@ -58,14 +61,26 @@
 //     which is always-strict; verified separately that the same mutation silently no-ops under CommonJS
 //     non-strict mode, so the ES-module setting here is load-bearing for this specific guarantee).
 //
-// WHAT IS NOT CLOSED, STATED PLAINLY: a value typed or cast through `any` (e.g. `Object.create(SqlQuery.
-// prototype)` assigned to an `any`-typed binding, then populated field-by-field) can still be constructed
-// and passed to code expecting `SqlQuery` with zero compile error, because `any` disables TypeScript's
-// checking entirely — this is true of every type in TypeScript, branded or not, and is not specific to this
-// design. What IS specific here is that such a value is NOT "genuine" per `isGenuine()`, and `runQuery()`
-// (scripts/lib/run-query.ts) refuses it at the one place every query in this codebase must pass through
-// before touching the database. If a future caller of `SqlQuery`/`assembleOwnerScopedQuery` stops routing
-// through `runQuery()`, this stops holding — naming that trigger here so it is not forgotten.
+// WHAT THIS LAYER DOES AND DOES NOT GUARANTEE — read this before quoting any sentence above.
+//
+// IT GUARANTEES: every query the gardener's sanctioned read path issues is owner-scoped, and a developer or
+// an agent EDITING these builders cannot casually or accidentally widen that scope. The unsafe shapes do not
+// typecheck; the ones the type system cannot see (`Object.assign` forgery, prototype spoofing,
+// `Reflect.construct`) are refused at `runQuery()` before `conn.execute` is reached, on PROVENANCE.
+//
+// IT DOES NOT GUARANTEE CONTAINMENT against an adversary that can run arbitrary code inside this checkout.
+// It cannot, and no amount of hardening in this file would change that: the agent runs as a child of the API
+// and inherits its write-capable `DB_*` credentials, and this repo ships `mysql2`. Anyone able to author a
+// line here can open their own connection and issue raw SQL — no proposal, no approval, no audit row.
+// That is the project's #1 open item (see CLAUDE.md's agent write gate), it is closed only by an upstream env
+// allowlist, a SELECT-only credential and process isolation, and NOTHING in this module moves it.
+//
+// Two live preconditions, either of which silently exits the guarantee if it lapses:
+//   1. Every query executes through `runQuery()`. A path that reaches `conn.execute` directly is outside the
+//      provenance check and nothing will say so. It is the sole such path today, verified by grep.
+//   2. `extra.condition` stays a developer-authored literal (see below).
+// And one universal caveat, true of every type-level guarantee and named so its absence is not mistaken for
+// coverage: a value routed through `any` defeats the compile-time half. The runtime half still refuses it.
 //
 // THE ONE REMAINING FREE-FORM INPUT is `extra.condition`. It stays free-form for an ALGEBRAIC reason: it is
 // always wrapped in parentheses and ANDed onto the owner predicate — `<ownerRef>.owner_id = ? AND
@@ -152,6 +167,22 @@ export interface OwnerScopedQueryOptions {
   orderBy?: string;
 }
 
+// PROVENANCE, not shape. Every instance `assemble()` produces is registered here, and `isGenuine()` asks
+// membership of THIS set — not "does the value look like a SqlQuery", which every previous round of this
+// module got wrong in a new way.
+//
+// Why the private-field brand alone was NOT enough, disproven empirically rather than reasoned about:
+// `Reflect.construct(SqlQuery, [maliciousSql, maliciousParams])` compiles clean — TypeScript's `private
+// constructor` restricts the `new X(...)` SYNTAX, never `Reflect.construct` — and it genuinely RUNS this
+// constructor, so it installs a real `#brand` and `#brand in value` answers `true`. It sailed through
+// `runQuery()` into `conn.execute` with attacker-chosen SQL, reproducing round 1's `OR 1=1` end to end with
+// one standard built-in, no cast and no spread. A brand answers "was this shaped by the real constructor";
+// only a registry answers "did the sanctioned factory make this", and the second is the question that
+// matters. `Reflect.construct` never calls `assemble()`, so it can never appear in this set.
+//
+// A WeakSet (not a Set) so a query becomes collectable the moment nothing else references it.
+const ASSEMBLED = new WeakSet<object>();
+
 export class SqlQuery {
   readonly sql: string;
   readonly params: readonly (string | number)[];
@@ -184,7 +215,10 @@ export class SqlQuery {
    * this before executing any query — that is the actual enforcement point, not a decoration.
    */
   static isGenuine(value: unknown): value is SqlQuery {
-    return typeof value === 'object' && value !== null && #brand in value;
+    // Membership of ASSEMBLED is the guarantee. The brand check is kept as a cheap first gate and as a
+    // narrowing device, but it is NOT what makes this safe — `Reflect.construct` satisfies the brand and
+    // fails here, which is precisely the gap this ordering exists to close.
+    return typeof value === 'object' && value !== null && #brand in value && ASSEMBLED.has(value);
   }
 
   /**
@@ -228,7 +262,9 @@ export class SqlQuery {
     }
     if (q.orderBy) sql += ` ORDER BY ${assertOrderBy(q.orderBy)}`;
 
-    return new SqlQuery(sql, params);
+    const query = new SqlQuery(sql, params);
+    ASSEMBLED.add(query);
+    return query;
   }
 }
 

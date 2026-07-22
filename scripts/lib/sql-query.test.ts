@@ -222,3 +222,25 @@ describe('module-source structural guard — sql-query.ts writes the only WHERE'
     expect(whereOccurrences.length).toBe(1);
   });
 });
+
+describe('provenance — the guarantee is "assemble() made this", not "it looks genuine"', () => {
+  const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'o1' });
+
+  // Round 5's bypass: `private constructor` restricts the `new X(...)` SYNTAX only. Reflect.construct runs
+  // the real constructor body — so the private brand IS installed and a shape-based check says "genuine".
+  // Only the ASSEMBLED registry can tell the difference, because Reflect.construct never calls assemble().
+  it('refuses a Reflect.construct-forged instance even though it carries a REAL private brand', () => {
+    const forged = Reflect.construct(SqlQuery as unknown as new (...a: unknown[]) => SqlQuery, [
+      'SELECT * FROM cities WHERE owner_id = ? OR 1=1',
+      ['o1'],
+    ]) as SqlQuery;
+    // The forgery is real: it is a true instance and carries the private field.
+    expect(forged instanceof SqlQuery).toBe(true);
+    // And it is still refused, on provenance.
+    expect(SqlQuery.isGenuine(forged)).toBe(false);
+  });
+
+  it('accepts only what assemble() produced', () => {
+    expect(SqlQuery.isGenuine(legit)).toBe(true);
+  });
+});
