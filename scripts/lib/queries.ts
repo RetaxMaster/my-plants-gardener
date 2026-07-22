@@ -1,28 +1,26 @@
 import { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { assembleOwnerScopedQuery, type SqlQuery } from './sql-query.js';
+import { runQuery } from './run-query.js';
 
 export type { SqlQuery };
-
-async function run(conn: Pick<Connection, 'execute'>, q: SqlQuery): Promise<RowDataPacket[]> {
-  const [rows] = await conn.execute<RowDataPacket[]>(q.sql, q.params);
-  return rows;
-}
 
 // THE GARDENER'S REAL READ BOUNDARY (Spec 4 §10.2b / §5.1). The route allowlist the platform exposes to
 // this agent is deliberately tiny and does not carry the bulk reads, so the boundary is enforced HERE.
 //
-// Every builder below calls `assembleOwnerScopedQuery` (scripts/lib/sql-query.ts) — the only function that
-// can produce a `SqlQuery` without an explicit unsafe cast, and the only place a WHERE clause is written.
-// No builder here supplies raw SQL text for the SELECT/FROM/JOIN shape: each passes STRUCTURED
-// table/alias/column/join values, which the constructor validates against a positive identifier grammar
-// before it builds anything — see sql-query.ts for the two-round history of why a naming/regex guard, and
-// later a free-form `select` string, both turned out to be discipline rather than construction.
+// Every builder below calls `assembleOwnerScopedQuery` (scripts/lib/sql-query.ts), the only function that
+// can construct a `SqlQuery` through its real (private) constructor, and the only place a WHERE clause is
+// written. No builder here supplies raw SQL text for the SELECT/FROM/JOIN shape: each passes STRUCTURED
+// table/alias/column/join values, which are validated against a positive identifier grammar before anything
+// is built — see sql-query.ts for the full, dated history of what did and did not hold across four review
+// rounds, including the one gap the type system does not close (Object.assign forgery) and why
+// `runQuery()` (scripts/lib/run-query.ts), not a text scan, is what actually closes it: every loader below
+// calls it, and it refuses anything that is not a genuine SqlQuery before the query ever reaches the DB.
 //
-// Two structural, source-text scans in queries.test.ts back this up as DEFENCE IN DEPTH (not the guarantee
-// itself, which lives in sql-query.ts): this file must never contain the literal token "WHERE" — every
-// builder here should have no reason to write one — and it must never contain an unsafe cast to SqlQuery
-// (`as unknown as SqlQuery` / `as any`), which is the only way left to fabricate one outside the shared
-// constructor.
+// Two structural, source-text scans in queries.test.ts remain as DEFENCE IN DEPTH (not the guarantee itself,
+// which lives in sql-query.ts's class + run-query.ts's runtime check): this file must never contain the
+// literal token "WHERE" — every builder here should have no reason to write one — and it must never contain
+// an unsafe cast to SqlQuery (`as unknown as SqlQuery` / `as any`), which is one further way (among others
+// named in sql-query.ts) a bypass could otherwise be attempted outside the shared constructor.
 
 export function buildCitiesQuery(ownerId: string): SqlQuery {
   return assembleOwnerScopedQuery({
@@ -55,15 +53,15 @@ export function buildPlantsQuery(ownerId: string): SqlQuery {
 }
 
 export async function loadCities(conn: Pick<Connection, 'execute'>, ownerId: string): Promise<RowDataPacket[]> {
-  return run(conn, buildCitiesQuery(ownerId));
+  return runQuery(conn, buildCitiesQuery(ownerId));
 }
 
 export async function loadPlaces(conn: Pick<Connection, 'execute'>, ownerId: string): Promise<RowDataPacket[]> {
-  return run(conn, buildPlacesQuery(ownerId));
+  return runQuery(conn, buildPlacesQuery(ownerId));
 }
 
 export async function loadPlants(conn: Pick<Connection, 'execute'>, ownerId: string): Promise<RowDataPacket[]> {
-  return run(conn, buildPlantsQuery(ownerId));
+  return runQuery(conn, buildPlantsQuery(ownerId));
 }
 
 // --- Task 3.7: per-plant and species reads, still owner-anchored ---

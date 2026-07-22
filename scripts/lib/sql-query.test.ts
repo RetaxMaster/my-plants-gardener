@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { assembleOwnerScopedQuery, type SqlQuery } from './sql-query.js';
+import { assembleOwnerScopedQuery, SqlQuery } from './sql-query.js';
 
 describe('assembleOwnerScopedQuery — basic assembly', () => {
   it('emits the owner predicate as the only WHERE condition when there is no extra', () => {
@@ -125,20 +125,89 @@ describe('bypass 1 — UNION smuggled through a structural field', () => {
 });
 
 // --- Bypass 2 (round 2 → round 3): a hand-rolled `{ sql, params }` literal, with the WHERE keyword itself
-// assembled at runtime (`'WHE' + 'RE'`) to defeat a source-text scan for the literal token. The brand makes
-// this a COMPILE-TIME failure rather than something a scanner has to notice. `@ts-expect-error` PROVES the
-// assignment fails to typecheck: if the brand were ever accidentally removed, this line would stop being an
-// error and `@ts-expect-error` would itself raise "Unused '@ts-expect-error' directive" — a trip-wire, not a
-// silent pass. This is inert at runtime (vitest strips the annotation via esbuild; the remaining plain
-// object literal executes harmlessly and asserts nothing), so it only has teeth under `tsc --noEmit`, which
-// is why it is chained into `npm test` for this repo.
-describe('bypass 2 — a hand-rolled object literal cannot satisfy the branded SqlQuery type', () => {
-  it('is only satisfiable through assembleOwnerScopedQuery, never a bare literal (compile-time proof)', () => {
+// assembled at runtime (`'WHE' + 'RE'`) to defeat a source-text scan for the literal token.
+describe('bypass 2 — a bare object literal cannot satisfy SqlQuery (compile-time proof)', () => {
+  it('is only satisfiable through assembleOwnerScopedQuery, never a bare literal', () => {
     const _kw = 'WHE' + 'RE';
-    // @ts-expect-error — SqlQuery is branded; this object is missing the private brand property, and no
-    // amount of runtime keyword-assembly changes that, because this check happens before anything runs.
+    // @ts-expect-error — SqlQuery is a class with a private field; a bare object literal cannot satisfy it,
+    // and no amount of runtime keyword-assembly changes that, because this check happens before anything
+    // runs. If the private field were ever removed, this line would stop being an error and
+    // `@ts-expect-error` would itself raise "Unused '@ts-expect-error' directive" — verified directly by
+    // temporarily removing the field and observing exactly that message, then restoring it.
     const bogus: SqlQuery = { sql: `SELECT id FROM plants ${_kw} owner_id = ? OR 1=1`, params: ['OWNER_1'] };
     expect(typeof bogus).toBe('object'); // keeps `bogus` referenced so nothing is flagged as unused
+  });
+});
+
+// --- Round 4 findings: three attacks that survived round 3's symbol-branded plain object, tested here
+// against the class-based redesign. Each of items 9/10/11 gets an EXPLICIT test that fails if the
+// protection is removed — not just a claim in a comment — per the direction that prompted this round.
+describe('round 4 — item 9: object-spread forgery', () => {
+  it('a spread of a genuine instance cannot be assigned to a SqlQuery-typed binding (compile-time proof)', () => {
+    const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'OWNER_1' });
+    // @ts-expect-error — TypeScript excludes a class's private members from the inferred type of an
+    // object-spread expression, so this spread is missing the private field and fails to typecheck against
+    // SqlQuery. Verified by temporarily removing the private field: this line stopped being an error and
+    // `@ts-expect-error` itself raised "Unused '@ts-expect-error' directive"; reverted afterward.
+    const forged: SqlQuery = { ...legit, sql: 'SELECT * FROM cities WHERE owner_id = ? OR 1=1' };
+    expect(typeof forged).toBe('object');
+  });
+
+  it('isGenuine() reports false for a spread-forged value even when the type check is bypassed', () => {
+    const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'OWNER_1' });
+    const forged = { ...legit, sql: 'SELECT * FROM cities WHERE owner_id = ? OR 1=1' } as unknown as SqlQuery;
+    expect(SqlQuery.isGenuine(forged)).toBe(false);
+    expect(SqlQuery.isGenuine(legit)).toBe(true);
+  });
+});
+
+describe('round 4 — item 10: Object.assign forgery (the type system does NOT catch this one)', () => {
+  it('Object.assign COMPILES as SqlQuery with zero cast — a confirmed TypeScript unsoundness, not a hope', () => {
+    const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'OWNER_1' });
+    // No @ts-expect-error here: this line is EXPECTED to compile clean. That is the gap. It is stated
+    // plainly rather than hidden, and closed instead by the runtime check on the next line.
+    const forged: SqlQuery = Object.assign({}, legit, { sql: 'SELECT * FROM cities WHERE owner_id = ? OR 1=1' });
+    expect(SqlQuery.isGenuine(forged)).toBe(false);
+  });
+});
+
+describe('round 4 — item 11: post-construction mutation of params', () => {
+  it('mutating a params element is a compile-time error AND throws at runtime (readonly array, frozen)', () => {
+    const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'OWNER_1' });
+    // The compile-time proof lives on the `@ts-expect-error` line: params is typed
+    // `readonly (string | number)[]`, so index assignment is rejected at compile time (TS2542). Verified by
+    // temporarily widening the type to a mutable array: this line stopped being an error and
+    // `@ts-expect-error` itself raised "Unused '@ts-expect-error' directive"; reverted afterward. The
+    // underlying statement still EXECUTES under vitest (esbuild strips types, not code), so it is wrapped
+    // in `expect(...).toThrow()` for the runtime half of the same proof (Object.freeze backs up the type).
+    expect(() => {
+      // @ts-expect-error — see above.
+      legit.params[0] = 'MUTATED';
+    }).toThrow(TypeError);
+  });
+
+  it('mutating a params element throws a real TypeError at runtime when forced through `any` (Object.freeze)', () => {
+    const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'OWNER_1' });
+    const mutableView = legit.params as unknown as (string | number)[];
+    expect(() => {
+      mutableView[0] = 'MUTATED';
+    }).toThrow(TypeError);
+    // The original is untouched — the throw happened before any write landed.
+    expect(legit.params[0]).toBe('OWNER_1');
+  });
+});
+
+// Why isGenuine() uses the ES2022 ergonomic brand check (`#brand in value`) and NOT `instanceof`: instanceof
+// walks the prototype chain, which Object.create(SqlQuery.prototype) can spoof without ever running the real
+// constructor. Confirmed directly: the spoofed object below reports instanceof === true (a false positive)
+// while isGenuine() correctly reports false, because the private field was never actually installed.
+describe('round 4 — why isGenuine() is not instanceof (prototype-chain spoofing)', () => {
+  it('a prototype-spoofed, manually-populated object fools instanceof but not isGenuine()', () => {
+    const spoofed = Object.create(SqlQuery.prototype) as SqlQuery;
+    (spoofed as unknown as { sql: string }).sql = 'SELECT * FROM cities WHERE owner_id = ? OR 1=1';
+    (spoofed as unknown as { params: unknown }).params = ['X'];
+    expect(spoofed instanceof SqlQuery).toBe(true); // the naive check is fooled
+    expect(SqlQuery.isGenuine(spoofed)).toBe(false); // the real check is not
   });
 });
 

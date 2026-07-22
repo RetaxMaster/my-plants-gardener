@@ -1,67 +1,85 @@
-// The branded query type + the ONLY sanctioned constructor for it.
+// The SqlQuery type + the ONLY sanctioned constructor for it.
 //
-// This module exists because two prior guards were defeated in review, and both failure modes are the
-// point, so they are recorded here rather than erased:
+// This module is on its fourth design. Every prior claim that turned out false is kept below, dated, next
+// to the empirical test that actually disproved it — per this project's rule that a doc which only ever
+// gains claims is a doc nobody audited. The rule going forward: a sentence of the form "there is no way
+// to…" is not written here unless a test sits next to it proving the specific thing that was tried failed.
 //
 //   ROUND 1 (naming + regex on the SQL string): "every builder binds ownerId first and its SQL contains the
 //   literal substring `owner_id = ?`" is DISCIPLINE, not construction. `WHERE owner_id = ? OR 1=1` satisfied
-//   both checks and still returned every owner's rows — a regex cannot distinguish a real predicate from a
-//   decorated tautology.
+//   both checks and still returned every owner's rows.
 //
 //   ROUND 2 (a single WHERE-writing function with a free-form `select: string` parameter, plus a
-//   source-text scan asserting exactly one `WHERE` token in the file): still discipline dressed as
-//   construction, because the CALLER, not the constructor, owned the query's grammar through `select`.
-//     - A UNION smuggled through `select` (`'SELECT id, name FROM plants UNION SELECT id, name FROM
-//       plants AS p2'`) produced exactly one `WHERE` token, bound ownerId first, and left the FIRST UNION
-//       branch completely unfiltered — an unparenthesized `WHERE` in a `UNION` binds only to the LAST
-//       branch in standard SQL, so the first branch returned every owner's rows.
-//     - A hand-rolled `{ sql, params }` literal using `const _kw = 'WHE' + 'RE'` reproduced the original
-//       `OR 1=1` payload while defeating the source-text scan, which can only see contiguous literal
-//       tokens, never a keyword assembled at runtime.
-//   Both were caught only by a human/peer reading the grammar, never by the guards themselves — which is
-//   the definition of a guard that does not actually hold.
+//   source-text scan for the word "WHERE"): a UNION smuggled through `select` left the first UNION branch
+//   completely unfiltered; a hand-rolled `{ sql, params }` literal with the keyword built at runtime
+//   (`'WHE' + 'RE'`) defeated the text scan.
 //
-// ROUND 3 (this module) removes the free-form `select` string entirely. `assembleOwnerScopedQuery` takes
-// STRUCTURED inputs — a driving table + optional alias, a column list, an optional join list, and which of
-// those refs carries `owner_id` — and assembles the `SELECT ... FROM ... [JOIN ...] WHERE ...` clause
-// itself. Every structural input is validated against a POSITIVE identifier grammar (a whitelist of what is
-// allowed), not a blacklist of forbidden keywords: `UNION`, a second `FROM`, a subquery, or a keyword
-// assembled from concatenated fragments all fail that grammar and THROW, naming the offending value,
-// because none of them can ever be a bare SQL identifier (or an `identifier.identifier` pair, or an
-// `identifier = identifier` join condition). There is no textual scan to defeat here — the shape is
-// unrepresentable, not undetected.
+//   ROUND 3 (structured `table`/`alias`/`columns`/`joins` inputs validated against a positive identifier
+//   grammar, plus a `SqlQuery` type branded with a private `unique symbol`): the grammar itself held —
+//   round 4's review threw newlines, spaces, backticks, semicolons, comment tokens (`--`, `/* */`, `#`), a
+//   misplaced `*`, and Unicode homoglyphs/fullwidth characters at it, and all were rejected (see
+//   sql-query.test.ts for the surviving regression tests). BUT the claim "no route to a SqlQuery value
+//   without an explicit unsafe cast" was FALSE, and was disproven two ways, both without any cast at all:
+//     - `{ ...legit, sql: 'anything' }` was claimed to require a cast. It does not need one to be ATTEMPTED,
+//       but it also does not compile: TS excludes a class's private members from the inferred type of an
+//       object-spread expression, so the spread result is missing `#brand` and assigning it to a
+//       `SqlQuery`-typed binding fails at compile time. (This part of round 3's claim, re-tested under the
+//       round-4 design below, holds — see the spread test.)
+//     - `Object.assign({}, legit, { sql: 'anything' })` DOES compile with ZERO errors when assigned to a
+//       `SqlQuery`-typed binding. Confirmed directly against this project's own tsc. This is a genuine,
+//       specific unsoundness in how TypeScript types `Object.assign`'s generic overload (it produces an
+//       intersection type that includes the source's type, which satisfies the private-member check even
+//       though the VALUE `Object.assign` actually builds at runtime never ran `SqlQuery`'s constructor and
+//       has no working private field). The type system does not catch this one. See below for what does.
 //
-// `SqlQuery` is additionally a BRANDED type: it carries a private, module-scoped `unique symbol` that no
-// other file can spell. A hand-rolled `{ sql, params }` object literal — however its SQL string was
-// assembled, including via a keyword built at runtime, which is exactly what defeated the round-2
-// source-text scan — fails to structurally satisfy `SqlQuery`. Verified directly against this project's own
-// tsc: a same-file object literal that spells the brand key compiles with ZERO errors (lexical access to
-// the symbol is enough), but from a DIFFERENT file, neither a bare return nor a single `as SqlQuery` cast
-// compiles (`TS2352: ... may be a mistake ... convert the expression to 'unknown' first`) — only
-// `as unknown as SqlQuery` (or `as any`) gets through. That is precisely why this constructor and the brand
-// live in their OWN module, separate from queries.ts where the builders live: queries.ts has no lexical
-// access to the brand symbol, so any bypass added there is FORCED into a conspicuous, grep-able
-// `as unknown as SqlQuery` / `as any`, rather than a silent structural match. queries.test.ts asserts there
-// are zero such casts in queries.ts, as defence in depth alongside (not instead of) this type-level gate.
+// ROUND 4 (this design) replaces the symbol-branded plain object with a real class carrying a `#private`
+// instance field, constructible only via `new` inside this class (the constructor is `private`, callable
+// only from `SqlQuery`'s own static `assemble` method). This closes what a plain branded object could not:
+//   - A bare object literal or a spread of a real instance is REJECTED AT COMPILE TIME (verified: TS2741,
+//     "Property '#brand' is missing" — see the `@ts-expect-error` tests). Private class fields are excluded
+//     from spread's inferred type by TypeScript itself, which a `unique symbol` property is not.
+//   - `Object.assign({}, legit, { sql: ... })` still COMPILES (the round-3 unsoundness above is not fixed by
+//     switching to a class — confirmed by re-running the same experiment against this class). What actually
+//     stops it is `SqlQuery.isGenuine()`, a RUNTIME check using the ES2022 ergonomic brand-check syntax
+//     (`#brand in value`), invoked by `runQuery()` (scripts/lib/run-query.ts) before any query reaches the
+//     database. This is deliberately NOT `instanceof`: `instanceof` walks the prototype chain, which
+//     `Object.create(SqlQuery.prototype)` can spoof — confirmed empirically, `instanceof` said `true` on a
+//     spoofed object with no real constructor call. `#brand in value` instead tests whether the private
+//     field was actually installed by a real `new SqlQuery(...)` invocation; it returned `false` on every
+//     forged value tried (spread-copy, Object.assign-copy, prototype-spoofed-and-manually-populated), and
+//     `true` only on a genuine instance. This means: the type system closes the bare-literal and spread
+//     routes; the `isGenuine()` runtime check, invoked at the point of actual use, closes Object.assign and
+//     prototype spoofing, which the type system does not and — as far as has been tested — cannot.
+//   - `params` is typed `readonly (string | number)[]` (not just wrapped in `Readonly<>`, which only
+//     protects the property binding, not the array's own elements): `legit.params[0] = 'X'` is a compile
+//     error (`TS2542`, verified). `Object.freeze` on both the instance and the params array backs this up
+//     at RUNTIME for any code that reaches the array through `any` and bypasses the compile-time check —
+//     confirmed to throw a real `TypeError` when run as an ES module (this package is `"type": "module"`,
+//     which is always-strict; verified separately that the same mutation silently no-ops under CommonJS
+//     non-strict mode, so the ES-module setting here is load-bearing for this specific guarantee).
 //
-// THE ONE REMAINING FREE-FORM INPUT is `extra.condition`, and it stays free-form for an ALGEBRAIC reason,
-// not because it was overlooked: it is always wrapped in parentheses and ANDed onto the owner predicate —
-// `<ownerRef>.owner_id = ? AND (extra.condition)` — and `A AND (B)` is a subset of the rows satisfying `A`
-// for EVERY possible `B`, well-formed or not, PROVIDED `B` does not itself break out of its own
-// parentheses (an unbalanced `)`, or an embedded SQL comment token). This constructor does NOT validate
-// that `extra.condition` is well-formed. That is safe TODAY because `extra.condition` is always a
-// developer-authored string literal at its call sites in queries.ts, never derived from agent/model input
-// at runtime — that precondition holds by inspection of those call sites, not by an enforced grammar. If
-// `extra.condition` is ever populated from anything other than a developer-authored literal, THAT is the
-// moment this precondition needs revisiting, and this comment would need to say so.
-
-const SQL_QUERY_BRAND: unique symbol = Symbol('SqlQuery');
-
-export type SqlQuery = Readonly<{
-  sql: string;
-  params: (string | number)[];
-  readonly [SQL_QUERY_BRAND]: true;
-}>;
+// WHAT IS NOT CLOSED, STATED PLAINLY: a value typed or cast through `any` (e.g. `Object.create(SqlQuery.
+// prototype)` assigned to an `any`-typed binding, then populated field-by-field) can still be constructed
+// and passed to code expecting `SqlQuery` with zero compile error, because `any` disables TypeScript's
+// checking entirely — this is true of every type in TypeScript, branded or not, and is not specific to this
+// design. What IS specific here is that such a value is NOT "genuine" per `isGenuine()`, and `runQuery()`
+// (scripts/lib/run-query.ts) refuses it at the one place every query in this codebase must pass through
+// before touching the database. If a future caller of `SqlQuery`/`assembleOwnerScopedQuery` stops routing
+// through `runQuery()`, this stops holding — naming that trigger here so it is not forgotten.
+//
+// THE ONE REMAINING FREE-FORM INPUT is `extra.condition`. It stays free-form for an ALGEBRAIC reason: it is
+// always wrapped in parentheses and ANDed onto the owner predicate — `<ownerRef>.owner_id = ? AND
+// (extra.condition)` — and `A AND (B)` is a subset of the rows satisfying `A` for EVERY possible `B`,
+// well-formed or not, PROVIDED `B` does not itself break out of its own parentheses (an unbalanced `)`, or
+// an embedded SQL comment token that comments out the rest of the line). This constructor does NOT validate
+// that `extra.condition` is well-formed, and — per explicit direction after this was raised in round 4 —
+// the fix, if this predicate is ever wrong, is to stop accepting a free-form condition at all, NOT to
+// pattern-match its contents; a blacklist here would just be round 1's mistake again, one level deeper.
+// This is safe TODAY because `extra.condition` is always a developer-authored string literal at its call
+// sites in queries.ts — re-verified in round 4 by grepping every call site — never derived from agent/model
+// input at runtime. That precondition holds by inspection, not by an enforced grammar. If `extra.condition`
+// is ever populated from anything other than a developer-authored literal, THAT is the moment this
+// precondition needs revisiting, and this comment needs to say so, dated.
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const QUALIFIED_COLUMN = /^([A-Za-z_][A-Za-z0-9_]*\.)?(\*|[A-Za-z_][A-Za-z0-9_]*)$/;
@@ -134,44 +152,90 @@ export interface OwnerScopedQueryOptions {
   orderBy?: string;
 }
 
-// The ONLY function in this codebase that can produce a value of type SqlQuery without an explicit unsafe
-// cast. The driving row set it returns is owner-scoped because: (1) the owner predicate is the only WHERE
-// this function ever writes, (2) it is always the FIRST condition with ownerId bound FIRST — there is no
-// parameter or branch that omits or relaxes it, (3) the FROM/JOIN clause it assembles is built entirely
-// from validated identifiers, so there is no grammar slot for a UNION, a second FROM, or a subquery to
-// occupy, and (4) any caller-supplied `extra` condition is trapped inside parentheses ANDed onto that
-// predicate, which can only narrow the result set, never widen it, regardless of what it evaluates to.
+export class SqlQuery {
+  readonly sql: string;
+  readonly params: readonly (string | number)[];
+
+  // A genuinely PRIVATE class field. Not a property: it does not appear in `Object.keys`, is not copied by
+  // object spread (TypeScript excludes private members from a spread's inferred type — verified), is
+  // inaccessible via bracket/computed-key access from outside this class, and is installed only by this
+  // constructor actually running via `new`. Its value is never read for its own sake — its only job is to
+  // exist, so `#brand in value` (see isGenuine below) can ask "did a real `new SqlQuery(...)` build this?"
+  readonly #brand = true;
+
+  private constructor(sql: string, params: (string | number)[]) {
+    this.sql = sql;
+    // Freeze the array (not just this instance): `params` is typed `readonly`, which blocks element
+    // mutation at compile time, and freezing backs that up at runtime for anything that reaches the array
+    // through `any`. Verified to throw a real TypeError under this package's ESM ("type": "module", always
+    // strict); the same mutation attempt silently no-ops under CommonJS non-strict mode, so this specific
+    // guarantee depends on staying an ES module.
+    this.params = Object.freeze(params.slice());
+    Object.freeze(this);
+  }
+
+  /**
+   * The RUNTIME check that closes what the type system does not (see the module banner: `Object.assign`
+   * forgery still typechecks as `SqlQuery`, and `Object.create(SqlQuery.prototype)` fools `instanceof` by
+   * spoofing the prototype chain without ever running this constructor). `#brand in value` is the ES2022
+   * "ergonomic brand check" for private fields: it reports whether `value` genuinely has this class's
+   * private slot, which is installed ONLY inside this constructor and cannot be forged by copying
+   * properties, spreading, or manipulating a prototype chain. `runQuery()` (scripts/lib/run-query.ts) calls
+   * this before executing any query — that is the actual enforcement point, not a decoration.
+   */
+  static isGenuine(value: unknown): value is SqlQuery {
+    return typeof value === 'object' && value !== null && #brand in value;
+  }
+
+  /**
+   * The ONLY function in this codebase that can construct a `SqlQuery` through the real constructor. The
+   * driving row set it returns is owner-scoped because: (1) the owner predicate is the only WHERE this
+   * function ever writes, (2) it is always the FIRST condition with ownerId bound FIRST — there is no
+   * parameter or branch that omits or relaxes it, (3) the FROM/JOIN clause it assembles is built entirely
+   * from validated identifiers, so there is no grammar slot for a UNION, a second FROM, or a subquery to
+   * occupy, and (4) any caller-supplied `extra` condition is trapped inside parentheses ANDed onto that
+   * predicate, which can only narrow the result set, never widen it, regardless of what it evaluates to.
+   */
+  static assemble(q: OwnerScopedQueryOptions): SqlQuery {
+    const alias = q.alias !== undefined ? assertIdentifier(q.alias, 'alias') : undefined;
+    const table = assertIdentifier(q.table, 'table');
+    const driving = alias ?? table;
+
+    const knownRefs = new Set<string>([driving]);
+    const joinSql = (q.joins ?? [])
+      .map((j) => {
+        const jAlias = j.alias !== undefined ? assertIdentifier(j.alias, 'join alias') : undefined;
+        const jTable = assertIdentifier(j.table, 'join table');
+        const jRef = jAlias ?? jTable;
+        knownRefs.add(jRef);
+        return ` JOIN ${jTable}${jAlias ? ` ${jAlias}` : ''} ON ${assertJoinOn(j.on)}`;
+      })
+      .join('');
+
+    const ownerRef = q.ownerRef ?? driving;
+    if (!knownRefs.has(ownerRef)) {
+      throw new Error(`ownerRef "${ownerRef}" is not one of this query's declared refs: ${[...knownRefs].join(', ')}.`);
+    }
+
+    const columns = q.columns.map((c) => assertColumn(c, knownRefs)).join(', ');
+    const fromClause = `${table}${alias ? ` ${alias}` : ''}${joinSql}`;
+
+    const params: (string | number)[] = [q.ownerId];
+    let sql = `SELECT ${columns} FROM ${fromClause} WHERE ${ownerRef}.owner_id = ?`;
+    if (q.extra) {
+      sql += ` AND (${q.extra.condition})`;
+      params.push(...q.extra.params);
+    }
+    if (q.orderBy) sql += ` ORDER BY ${assertOrderBy(q.orderBy)}`;
+
+    return new SqlQuery(sql, params);
+  }
+}
+
+// Exported as a plain function for call-site consistency with the rest of the codebase (queries.ts calls
+// `assembleOwnerScopedQuery({...})`, matching every prior round) — a thin, non-privileged wrapper around
+// the class's own static factory. It confers no additional access: it is exactly as strict as calling
+// `SqlQuery.assemble` directly.
 export function assembleOwnerScopedQuery(q: OwnerScopedQueryOptions): SqlQuery {
-  const alias = q.alias !== undefined ? assertIdentifier(q.alias, 'alias') : undefined;
-  const table = assertIdentifier(q.table, 'table');
-  const driving = alias ?? table;
-
-  const knownRefs = new Set<string>([driving]);
-  const joinSql = (q.joins ?? [])
-    .map((j) => {
-      const jAlias = j.alias !== undefined ? assertIdentifier(j.alias, 'join alias') : undefined;
-      const jTable = assertIdentifier(j.table, 'join table');
-      const jRef = jAlias ?? jTable;
-      knownRefs.add(jRef);
-      return ` JOIN ${jTable}${jAlias ? ` ${jAlias}` : ''} ON ${assertJoinOn(j.on)}`;
-    })
-    .join('');
-
-  const ownerRef = q.ownerRef ?? driving;
-  if (!knownRefs.has(ownerRef)) {
-    throw new Error(`ownerRef "${ownerRef}" is not one of this query's declared refs: ${[...knownRefs].join(', ')}.`);
-  }
-
-  const columns = q.columns.map((c) => assertColumn(c, knownRefs)).join(', ');
-  const fromClause = `${table}${alias ? ` ${alias}` : ''}${joinSql}`;
-
-  const params: (string | number)[] = [q.ownerId];
-  let sql = `SELECT ${columns} FROM ${fromClause} WHERE ${ownerRef}.owner_id = ?`;
-  if (q.extra) {
-    sql += ` AND (${q.extra.condition})`;
-    params.push(...q.extra.params);
-  }
-  if (q.orderBy) sql += ` ORDER BY ${assertOrderBy(q.orderBy)}`;
-
-  return { sql, params, [SQL_QUERY_BRAND]: true };
+  return SqlQuery.assemble(q);
 }

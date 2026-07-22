@@ -20,7 +20,7 @@ describe('owner-anchored query layer', () => {
 
   for (const [name, fn] of BUILDERS) {
     it(`${name} binds owner_id as its first parameter`, () => {
-      const q = (fn as (ownerId: string, ...rest: never[]) => { sql: string; params: unknown[] })('OWNER_1');
+      const q = (fn as (ownerId: string, ...rest: never[]) => { sql: string; params: readonly unknown[] })('OWNER_1');
       expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
       expect(q.params[0]).toBe('OWNER_1');
     });
