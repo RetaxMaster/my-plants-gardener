@@ -51,3 +51,35 @@ export async function loadPlaces(conn: Pick<Connection, 'execute'>, ownerId: str
 export async function loadPlants(conn: Pick<Connection, 'execute'>, ownerId: string): Promise<RowDataPacket[]> {
   return run(conn, buildPlantsQuery(ownerId));
 }
+
+// --- Task 3.7: per-plant and species reads, still owner-anchored ---
+
+// A plant id from the model is NEVER trusted on its own: the owner predicate stays first, so an id the
+// owner does not own returns zero rows rather than another garden's plant.
+export function buildPlantDetailQuery(ownerId: string, plantId: string): SqlQuery {
+  return {
+    sql: `SELECT p.id, p.place_id, p.species_slug, p.nickname, p.acquired_on
+          FROM plants p WHERE p.owner_id = ? AND p.id = ?`,
+    params: [ownerId, plantId],
+  };
+}
+
+export function buildPlantProfileQuery(ownerId: string, plantId: string): SqlQuery {
+  return {
+    sql: `SELECT pr.* FROM plant_profiles pr
+          JOIN plants p ON p.id = pr.plant_id
+          WHERE p.owner_id = ? AND p.id = ?`,
+    params: [ownerId, plantId],
+  };
+}
+
+// The species catalogue is GLOBAL reference data, not owner data — so it is reached through a plant the
+// owner owns, never queried directly. That keeps the "every builder is owner-anchored" invariant true.
+export function buildSpeciesForOwnedPlantQuery(ownerId: string, plantId: string): SqlQuery {
+  return {
+    sql: `SELECT s.* FROM species s
+          JOIN plants p ON p.species_slug = s.slug
+          WHERE p.owner_id = ? AND p.id = ?`,
+    params: [ownerId, plantId],
+  };
+}

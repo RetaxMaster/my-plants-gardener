@@ -86,3 +86,25 @@ describe('garden-wide builders (Task 3.6)', () => {
     expect(rowsForOwner1).toEqual([{ id: 'city-1', owner_id: 'OWNER_1', name: 'CDMX' }]);
   });
 });
+
+describe('per-plant and species builders (Task 3.7)', () => {
+  it('buildPlantDetailQuery still anchors on the owner, not only on the plant id', () => {
+    const q = queries.buildPlantDetailQuery('OWNER_1', 'PLANT_9');
+    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
+  });
+
+  it('buildPlantProfileQuery reaches the profile through the owned plant, not the profile table alone', () => {
+    const q = queries.buildPlantProfileQuery('OWNER_1', 'PLANT_9');
+    expect(q.sql).toContain('plant_profiles');
+    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
+  });
+
+  it('buildSpeciesForOwnedPlantQuery reaches the (global) species catalogue only through an owned plant', () => {
+    const q = queries.buildSpeciesForOwnedPlantQuery('OWNER_1', 'PLANT_9');
+    expect(q.sql).toContain('species');
+    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
+  });
+});
