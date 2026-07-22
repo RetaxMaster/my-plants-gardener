@@ -108,3 +108,19 @@ describe('per-plant and species builders (Task 3.7)', () => {
     expect(q.params).toEqual(['OWNER_1', 'PLANT_9']);
   });
 });
+
+describe('clinical-records read (Task 3.8, gardener is READ-ONLY here)', () => {
+  it('buildClinicalRecordsQuery anchors on the owner and windows by date', () => {
+    const q = queries.buildClinicalRecordsQuery('OWNER_1', 'PLANT_9', 3);
+    expect(q.sql).toMatch(/owner_id\s*=\s*\?/);
+    expect(q.params.slice(0, 2)).toEqual(['OWNER_1', 'PLANT_9']);
+  });
+
+  it('windows DB-side with DATE_SUB/CURDATE — never a bound JS date (project MariaDB date rule)', () => {
+    const q = queries.buildClinicalRecordsQuery('OWNER_1', 'PLANT_9', 3);
+    expect(q.sql).toContain('DATE_SUB(CURDATE(), INTERVAL ? MONTH)');
+    expect(q.params).toEqual(['OWNER_1', 'PLANT_9', 3]);
+    expect(q.params.every((p) => typeof p !== 'object')).toBe(true);
+    expect(q.sql).not.toMatch(/toISOString|\dT\d\d:/);
+  });
+});

@@ -83,3 +83,22 @@ export function buildSpeciesForOwnedPlantQuery(ownerId: string, plantId: string)
     params: [ownerId, plantId],
   };
 }
+
+// --- Task 3.8: the doctor's clinical records, as placement context (CONDITIONAL on Task 0.5 — confirmed) ---
+
+// The doctor's clinical records are CONTEXT for placement and materials advice, never a licence to
+// diagnose (Spec 4 §4.4). The gardener only ever READS them — `clinical_record.create`/`.update` are
+// `{ allowed: false }` for the gardener scope in AGENT_CAPABILITIES, so no write path is added here or
+// anywhere else. Windowed like the doctor's own context, and owner-anchored like every other builder above.
+// The window boundary is resolved DB-side via CURDATE() rather than a JS Date/ISO string bound from Node —
+// same rule as the rest of the project (never compare date/time columns against a Node-computed instant,
+// which MariaDB may reparse in the session timezone). recorded_on is itself a bare DATE column with no
+// time-of-day component, and (plant_id, recorded_on) is unique, so no created_at tiebreak is needed.
+export function buildClinicalRecordsQuery(ownerId: string, plantId: string, months: number): SqlQuery {
+  return {
+    sql: `SELECT r.id, r.recorded_on, r.body FROM plant_clinical_records r
+          WHERE r.owner_id = ? AND r.plant_id = ? AND r.recorded_on >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+          ORDER BY r.recorded_on DESC`,
+    params: [ownerId, plantId, months],
+  };
+}
