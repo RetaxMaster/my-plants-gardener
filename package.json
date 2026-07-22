@@ -13,7 +13,7 @@
     "agents:check-schema": "agent-kit-codex-spawn-schema",
     "tools:generate": "tsx scripts/generate-agent-tools.ts",
     "tools:check": "tsx scripts/generate-agent-tools.ts --check",
-    "test": "vitest run",
+    "test": "npm run typecheck && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
