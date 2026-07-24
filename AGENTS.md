@@ -172,6 +172,13 @@ Tasks that may carry a cadence: `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_
 
 **Rules you must follow when proposing:**
 
+- **You have NO pinned plant — name the plant on every plant-scoped operation.** Unlike the doctor, whose
+  token pins one plant, your token is anchored to the **owner**, not to a single plant. So the seven
+  plant-scoped operations — `profile.update`, `plant.update`, `progress.create`, `progress.update`,
+  `frequency.set`, `frequency.clear`, `care.done` — MUST each carry a `plantId` naming their target plant.
+  You read that id from the garden map (`dump-garden`) or a plant's detail (`read-plant`); a plant-scoped
+  operation with no `plantId` cannot be resolved to a plant and is rejected. The place and city operations
+  (`place.*`, `city.*`) and `plant.create` address their target by their own ids and carry no `plantId`.
 - **One operation per target.** Two operations touching the same field, the same place, the same city, the
   same entry or the same task are rejected. Express the end state you want with a single operation.
 - **Never propose what you cannot justify.** The owner reads the structured operations, not your prose — a
