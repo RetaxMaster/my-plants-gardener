@@ -16,10 +16,12 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 | `growthHabit` | `upright` \| `climber` \| `trailing` \| `clumping` \| `rosette` \| `tree` \| `shrub` \| `other` \| null | optional |
 | `ageMonths` | integer [0, ∞] \| null | optional |
 | `nearHeater` | boolean \| null | optional |
+| `plantId` | string | optional |
 
 ```json
 {
   "type": "profile.update",
+  "plantId": "PLANT_ID",
   "potType": "terracotta"
 }
 ```
@@ -28,12 +30,14 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
+| `plantId` | string | optional |
 | `nickname` | string \| null | optional |
 | `placeId` | string | optional |
 
 ```json
 {
   "type": "plant.update",
+  "plantId": "PLANT_ID",
   "placeId": "PLACE_ID"
 }
 ```
@@ -42,6 +46,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
+| `plantId` | string | optional |
 | `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | required |
 | `occurredOn` | string | optional |
 | `observations` | string \| null | optional |
@@ -51,6 +56,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 ```json
 {
   "type": "progress.create",
+  "plantId": "PLANT_ID",
   "health": "GOOD",
   "occurredOn": "2026-07-20",
   "observations": "Moved to the east window."
@@ -61,6 +67,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
+| `plantId` | string | optional |
 | `entryId` | string | required |
 | `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | optional |
 | `occurredOn` | string | optional |
@@ -71,6 +78,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 ```json
 {
   "type": "progress.update",
+  "plantId": "PLANT_ID",
   "entryId": "ENTRY_ID",
   "health": "EXCELLENT"
 }
@@ -80,12 +88,14 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
+| `plantId` | string | optional |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
 | `intervalDays` | integer [1, 3650] | required |
 
 ```json
 {
   "type": "frequency.set",
+  "plantId": "PLANT_ID",
   "task": "WATER",
   "intervalDays": 9
 }
@@ -95,11 +105,13 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
+| `plantId` | string | optional |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
 
 ```json
 {
   "type": "frequency.clear",
+  "plantId": "PLANT_ID",
   "task": "WATER"
 }
 ```
@@ -108,12 +120,14 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
+| `plantId` | string | optional |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
 | `occurredOn` | string | required |
 
 ```json
 {
   "type": "care.done",
+  "plantId": "PLANT_ID",
   "task": "WATER",
   "occurredOn": "2026-07-20"
 }
