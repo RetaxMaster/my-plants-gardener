@@ -107,6 +107,21 @@ export function buildSpeciesForOwnedPlantQuery(ownerId: string, plantId: string)
   });
 }
 
+// The per-plant loaders. Each delegates to its owner-anchored builder through runQuery(), so the owner
+// predicate can never be bypassed and an id the owner does not own resolves to zero rows — never another
+// garden's plant.
+export async function loadPlantDetail(conn: Pick<Connection, 'execute'>, ownerId: string, plantId: string): Promise<RowDataPacket[]> {
+  return runQuery(conn, buildPlantDetailQuery(ownerId, plantId));
+}
+
+export async function loadPlantProfile(conn: Pick<Connection, 'execute'>, ownerId: string, plantId: string): Promise<RowDataPacket[]> {
+  return runQuery(conn, buildPlantProfileQuery(ownerId, plantId));
+}
+
+export async function loadSpeciesForOwnedPlant(conn: Pick<Connection, 'execute'>, ownerId: string, plantId: string): Promise<RowDataPacket[]> {
+  return runQuery(conn, buildSpeciesForOwnedPlantQuery(ownerId, plantId));
+}
+
 // --- Task 3.8: the doctor's clinical records, as placement context (CONDITIONAL on Task 0.5 — confirmed) ---
 
 // The doctor's clinical records are CONTEXT for placement and materials advice, never a licence to
@@ -129,4 +144,8 @@ export function buildClinicalRecordsQuery(ownerId: string, plantId: string, mont
     },
     orderBy: 'r.recorded_on DESC',
   });
+}
+
+export async function loadClinicalRecords(conn: Pick<Connection, 'execute'>, ownerId: string, plantId: string, months: number): Promise<RowDataPacket[]> {
+  return runQuery(conn, buildClinicalRecordsQuery(ownerId, plantId, months));
 }
