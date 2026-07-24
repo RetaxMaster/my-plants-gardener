@@ -244,3 +244,34 @@ describe('provenance — the guarantee is "assemble() made this", not "it looks 
     expect(SqlQuery.isGenuine(legit)).toBe(true);
   });
 });
+
+// REMOVAL-PROOF: prove the ASSEMBLED WeakSet actually GUARDS, i.e. isGenuine() depends on it. A guard nobody
+// can turn red is a guard nobody has verified. isGenuine() is `carriesRealBrand(value) && ASSEMBLED.has(value)`;
+// both conjuncts are load-bearing, and each removal mode flips one of these tests:
+//   - BYPASS  (delete the `&& ASSEMBLED.has(value)` conjunct)  → a real-branded forgery would be ACCEPTED.
+//   - EMPTY   (drop `ASSEMBLED.add(query)` from assemble())     → a genuine query would be REFUSED.
+// `carriesRealBrand` (the cheap first gate, exposed for exactly this proof) is what lets the argument be
+// executable rather than asserted in prose: both witnesses below SATISFY the brand gate, so the ONLY thing
+// deciding isGenuine()'s verdict for each is its WeakSet membership.
+describe('removal-proof — the ASSEMBLED WeakSet is the load-bearing conjunct of isGenuine()', () => {
+  it('BYPASS: a brand-only gate (WeakSet check deleted) would ACCEPT the Reflect.construct forgery', () => {
+    const forged = Reflect.construct(SqlQuery as unknown as new (...a: unknown[]) => SqlQuery, [
+      'SELECT * FROM cities WHERE owner_id = ? OR 1=1',
+      ['o1'],
+    ]) as SqlQuery;
+    // The forgery genuinely passes the brand gate — its constructor body ran and installed a real `#brand`.
+    // So an isGenuine() stripped of `&& ASSEMBLED.has(value)` would return true and let this SQL through.
+    expect(SqlQuery.carriesRealBrand(forged)).toBe(true);
+    // The full isGenuine() refuses it, on provenance alone. Deleting the WeakSet conjunct turns THIS red.
+    expect(SqlQuery.isGenuine(forged)).toBe(false);
+  });
+
+  it('EMPTY: dropping ASSEMBLED.add() from assemble() would REFUSE a genuine query', () => {
+    const legit = assembleOwnerScopedQuery({ table: 'cities', columns: ['id'], ownerId: 'o1' });
+    // It passes the brand gate too — so the ONLY thing admitting it through isGenuine() is its registration
+    // in ASSEMBLED. If assemble() stopped calling `ASSEMBLED.add(query)`, isGenuine(legit) would flip to
+    // false and this expectation would go red.
+    expect(SqlQuery.carriesRealBrand(legit)).toBe(true);
+    expect(SqlQuery.isGenuine(legit)).toBe(true);
+  });
+});

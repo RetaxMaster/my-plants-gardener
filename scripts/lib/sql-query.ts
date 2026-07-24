@@ -188,10 +188,13 @@ export class SqlQuery {
   readonly params: readonly (string | number)[];
 
   // A genuinely PRIVATE class field. Not a property: it does not appear in `Object.keys`, is not copied by
-  // object spread (TypeScript excludes private members from a spread's inferred type — verified), is
-  // inaccessible via bracket/computed-key access from outside this class, and is installed only by this
-  // constructor actually running via `new`. Its value is never read for its own sake — its only job is to
-  // exist, so `#brand in value` (see isGenuine below) can ask "did a real `new SqlQuery(...)` build this?"
+  // object spread (TypeScript excludes private members from a spread's inferred type — verified), and is
+  // inaccessible via bracket/computed-key access from outside this class. It is installed whenever THIS
+  // constructor body runs — which is `new SqlQuery(...)` from inside `assemble()`, but ALSO
+  // `Reflect.construct(SqlQuery, [...])` from anywhere (round 5 proved this). So the brand answers only "did
+  // this class's constructor shape this value", NOT "did the sanctioned factory make it": a `#brand in value`
+  // check is a cheap first gate, never the guarantee. The guarantee is PROVENANCE — membership of the
+  // `ASSEMBLED` registry, which only `assemble()` writes and `Reflect.construct` can never reach.
   readonly #brand = true;
 
   private constructor(sql: string, params: (string | number)[]) {
@@ -206,19 +209,29 @@ export class SqlQuery {
   }
 
   /**
-   * The RUNTIME check that closes what the type system does not (see the module banner: `Object.assign`
-   * forgery still typechecks as `SqlQuery`, and `Object.create(SqlQuery.prototype)` fools `instanceof` by
-   * spoofing the prototype chain without ever running this constructor). `#brand in value` is the ES2022
-   * "ergonomic brand check" for private fields: it reports whether `value` genuinely has this class's
-   * private slot, which is installed ONLY inside this constructor and cannot be forged by copying
-   * properties, spreading, or manipulating a prototype chain. `runQuery()` (scripts/lib/run-query.ts) calls
-   * this before executing any query — that is the actual enforcement point, not a decoration.
+   * The cheap first gate, exposed so the removal-proof (sql-query.test.ts) can demonstrate that a forgery
+   * which SATISFIES it is still refused by `isGenuine()`. `#brand in value` is the ES2022 "ergonomic brand
+   * check" for private fields: it reports whether `value` carries this class's private slot. That slot is
+   * installed by any run of this constructor body — including `Reflect.construct`, which is exactly why the
+   * brand ALONE is not the guarantee (round 5). This predicate confers no construction ability; it only
+   * reports a fact an adversary could already observe.
+   */
+  static carriesRealBrand(value: unknown): value is object {
+    return typeof value === 'object' && value !== null && #brand in value;
+  }
+
+  /**
+   * The RUNTIME enforcement point, called by `runQuery()` (scripts/lib/run-query.ts) before any query
+   * reaches the database. The GUARANTEE is PROVENANCE: `ASSEMBLED.has(value)` — membership of the registry
+   * that ONLY `assemble()` writes. That is what closes what the type system cannot (see the module banner:
+   * `Object.assign` forgery still typechecks as `SqlQuery`; `Object.create(SqlQuery.prototype)` fools
+   * `instanceof`; `Reflect.construct` even installs a real `#brand`). The brand check is retained purely as
+   * a cheap first gate and a narrowing device — it is NOT what makes this safe, and on its own it accepts the
+   * `Reflect.construct` forgery. Both conjuncts are load-bearing and the removal-proof pins each: emptying
+   * the WeakSet turns the acceptance tests red; dropping the WeakSet conjunct turns the refusal tests red.
    */
   static isGenuine(value: unknown): value is SqlQuery {
-    // Membership of ASSEMBLED is the guarantee. The brand check is kept as a cheap first gate and as a
-    // narrowing device, but it is NOT what makes this safe — `Reflect.construct` satisfies the brand and
-    // fails here, which is precisely the gap this ordering exists to close.
-    return typeof value === 'object' && value !== null && #brand in value && ASSEMBLED.has(value);
+    return SqlQuery.carriesRealBrand(value) && ASSEMBLED.has(value);
   }
 
   /**
