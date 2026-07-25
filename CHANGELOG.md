@@ -34,6 +34,9 @@ plant owner and for whoever operates this agent, not a commit dump.
   for its one write tool — every operation it may propose, each field's type and accepted values, and one
   valid example each — generated from the same capability map the API enforces, so it lists exactly what the
   Gardener is allowed to do and nothing more.
+- **The Gardener can now leave a free-text note on a plant's timeline**, via the new `note.create`
+  operation — naming the plant it targets, since its token has no pinned plant of its own. A quick "moved
+  the pot for more light" alongside a relocation, applied only once you approve it.
 
 ### Security
 
