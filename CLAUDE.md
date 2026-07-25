@@ -89,7 +89,9 @@ Run these from the gardener checkout (its cwd); each writes into the session wor
 - `npm run dump-garden` — the owner's **garden map**: every city, its places and their conditions (light,
   indoor/outdoor, climate control, humidity, indoor temperature range, airflow), and the plants living in
   each place — written as `context/garden-context.json` (+ a skimmable `.md`). Each place also reports its
-  **missing** conditions explicitly: a gap is reported as a gap, never guessed.
+  **missing** conditions explicitly: a gap is reported as a gap, never guessed. A **memorialized or gifted**
+  plant has no live place, so it never nests under a city/place — it is listed separately, under its own
+  "Plants with no place" section, carrying the place/city it was last in as a frozen snapshot label.
 - `npm run read-plant -- --plant <id>` — **one owned plant in depth**: its detail, its 9-field profile, its
   species record, its **computed care plan** (`GET /plants/:id/care` — the one care read your token may
   reach), and the doctor's clinical records as placement context — written as `context/plant-<id>.json`. The
