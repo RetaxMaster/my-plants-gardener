@@ -43,10 +43,17 @@ export function buildPlacesQuery(ownerId: string): SqlQuery {
   });
 }
 
+// Plant Lifecycle (Spec 4b): `place_id` is nullable — a MEMORIAL/GIFTED plant can be created with no place
+// (import) or transitioned while keeping its historical place, so both cases exist. `lifecycle_state` +
+// the two frozen snapshot labels are read so the garden-context builder can surface a place-less frozen
+// plant instead of silently dropping it (see garden-context.ts).
 export function buildPlantsQuery(ownerId: string): SqlQuery {
   return assembleOwnerScopedQuery({
     table: 'plants',
-    columns: ['id', 'place_id', 'species_slug', 'nickname', 'acquired_on', 'cover_image_url'],
+    columns: [
+      'id', 'place_id', 'species_slug', 'nickname', 'acquired_on', 'cover_image_url',
+      'lifecycle_state', 'frozen_place_label', 'frozen_city_label',
+    ],
     ownerId,
     orderBy: 'acquired_on',
   });

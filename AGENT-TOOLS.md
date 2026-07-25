@@ -250,6 +250,32 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 }
 ```
 
+### `plant.memorialize`
+
+| Field | Type | Required |
+|---|---|---|
+| `plantId` | string | optional |
+
+```json
+{
+  "type": "plant.memorialize",
+  "plantId": "PLANT_ID"
+}
+```
+
+### `plant.gift`
+
+| Field | Type | Required |
+|---|---|---|
+| `plantId` | string | optional |
+
+```json
+{
+  "type": "plant.gift",
+  "plantId": "PLANT_ID"
+}
+```
+
 ### Cross-field invariants
 
 - **proposal:** profile.update / plant.update / progress.update / place.update / city.update must each change at least one field (an op carrying only its type + target id is rejected).

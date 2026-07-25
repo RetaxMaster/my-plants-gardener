@@ -49,10 +49,11 @@ describe('garden-wide builders (Task 3.6)', () => {
     expect(q.params).toEqual(['OWNER_1']);
   });
 
-  it('buildPlantsQuery — exact SQL, orders by acquisition date', () => {
+  it('buildPlantsQuery — exact SQL, orders by acquisition date, reads the lifecycle + frozen snapshot columns', () => {
     const q = queries.buildPlantsQuery('OWNER_1');
     expect(q.sql).toBe(
-      'SELECT id, place_id, species_slug, nickname, acquired_on, cover_image_url FROM plants ' +
+      'SELECT id, place_id, species_slug, nickname, acquired_on, cover_image_url, ' +
+        'lifecycle_state, frozen_place_label, frozen_city_label FROM plants ' +
         'WHERE plants.owner_id = ? ORDER BY acquired_on',
     );
     expect(q.params).toEqual(['OWNER_1']);

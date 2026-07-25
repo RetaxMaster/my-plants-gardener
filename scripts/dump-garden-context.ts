@@ -27,9 +27,10 @@ async function main(): Promise<void> {
     writeFileSync(mdPath, renderGardenMarkdown(garden), 'utf8');
     // Print ABSOLUTE paths: cwd stays on the checkout, so a bare relative path resolves nowhere useful for
     // the operator OR for a subagent it delegates to.
-    const plantCount = garden.cities.reduce((n, c) => n + c.places.reduce((m, p) => m + p.plants.length, 0), 0);
+    const placedPlantCount = garden.cities.reduce((n, c) => n + c.places.reduce((m, p) => m + p.plants.length, 0), 0);
+    const plantCount = placedPlantCount + garden.frozenPlants.length;
     const placeCount = garden.cities.reduce((n, c) => n + c.places.length, 0);
-    console.log(`Wrote the garden map for owner ${garden.ownerId} (${garden.cities.length} cities, ${placeCount} places, ${plantCount} plants).`);
+    console.log(`Wrote the garden map for owner ${garden.ownerId} (${garden.cities.length} cities, ${placeCount} places, ${plantCount} plants, ${garden.frozenPlants.length} with no place).`);
     console.log(`  ${jsonPath}`);
     console.log(`  ${mdPath}`);
   } finally {
