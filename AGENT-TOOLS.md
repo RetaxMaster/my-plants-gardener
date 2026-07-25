@@ -133,6 +133,21 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 }
 ```
 
+### `note.create`
+
+| Field | Type | Required |
+|---|---|---|
+| `plantId` | string | optional |
+| `body` | string | required |
+
+```json
+{
+  "type": "note.create",
+  "plantId": "PLANT_ID",
+  "body": "Moved this one to the shaded corner today."
+}
+```
+
 ### `place.create`
 
 | Field | Type | Required |

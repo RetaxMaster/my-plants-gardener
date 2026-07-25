@@ -34,7 +34,7 @@ assertOmitFieldsAreRealFields();
 // from the shared vocabulary: lightType from LIGHT_TYPES, airflow from AIRFLOW, humidityCharacter from
 // HUMIDITY_CHARACTERS, tasks from FREQUENCY_BEARING_TASKS, dates as YYYY-MM-DD calendar dates.
 // The gardener is anchored to the OWNER, not to a single plant, so every plant-scoped operation MUST name
-// its target with `plantId` (unlike the doctor, whose token pins the plant). The seven plant-scoped examples
+// its target with `plantId` (unlike the doctor, whose token pins the plant). The eight plant-scoped examples
 // therefore carry a `plantId` placeholder so a copied example names its plant; the place/city examples and
 // `plant.create` address their target by their own ids and carry none.
 const example: Record<string, unknown> = {
@@ -43,6 +43,7 @@ const example: Record<string, unknown> = {
   'plant.create': { type: 'plant.create', speciesSlug: 'ficus-lyrata', placeId: 'PLACE_ID', acquiredOn: '2026-07-20', nickname: 'Figaro' },
   'progress.create': { type: 'progress.create', plantId: 'PLANT_ID', health: 'GOOD', occurredOn: '2026-07-20', observations: 'Moved to the east window.' },
   'progress.update': { type: 'progress.update', plantId: 'PLANT_ID', entryId: 'ENTRY_ID', health: 'EXCELLENT' },
+  'note.create': { type: 'note.create', plantId: 'PLANT_ID', body: 'Moved this one to the shaded corner today.' },
   'frequency.set': { type: 'frequency.set', plantId: 'PLANT_ID', task: 'WATER', intervalDays: 9 },
   'frequency.clear': { type: 'frequency.clear', plantId: 'PLANT_ID', task: 'WATER' },
   'care.done': { type: 'care.done', plantId: 'PLANT_ID', task: 'WATER', occurredOn: '2026-07-20' },
