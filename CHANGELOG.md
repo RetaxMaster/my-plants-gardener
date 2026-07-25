@@ -37,6 +37,15 @@ plant owner and for whoever operates this agent, not a commit dump.
 - **The Gardener can now leave a free-text note on a plant's timeline**, via the new `note.create`
   operation — naming the plant it targets, since its token has no pinned plant of its own. A quick "moved
   the pot for more light" alongside a relocation, applied only once you approve it.
+- **The Gardener can now ask to move a plant to the pantheon or mark it as gifted**, via the new
+  `plant.memorialize`/`plant.gift` operations — naming the plant it targets, since its token has no pinned
+  plant of its own. Because a memorial can't be undone, the Gardener is instructed to ask you to say so
+  explicitly, in words, before it ever sends either request — over and above the approval you'd give it in
+  the app anyway. It cannot bring a plant back on its own: reviving one from gifted is something only you
+  can do.
+- **The garden map now shows a memorialized or gifted plant without a place.** Where it once assumed every
+  plant nested under a city and a place, the map now lists these plants separately, under their own
+  section, carrying the place and city they last lived in as a reminder rather than a live location.
 
 ### Security
 
