@@ -123,6 +123,10 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 | `plantId` | string | optional |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
 | `occurredOn` | string | required |
+| `potSizeCm` | integer (0, 500] | optional |
+| `soilMix` | `aroid` \| `all-purpose` \| `all-purpose-perlite` \| `cactus-succulent` \| `orchid-bark` \| `peat-based` \| `coco-coir` \| `semi-hydro` \| `other` | optional |
+| `charged` | boolean | optional |
+| `refreshedOn` | string | optional |
 
 ```json
 {
