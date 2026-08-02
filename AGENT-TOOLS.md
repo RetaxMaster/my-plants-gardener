@@ -298,7 +298,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 ### Cross-field invariants
 
-- **proposal:** profile.update / plant.update / progress.update / place.update / city.update must each change at least one field (an op carrying only its type + target id is rejected).
+- **proposal:** profile.update / plant.update / progress.update / place.update / city.update must each change at least one field (an op carrying only its type + target id is rejected). care.done requires potSizeCm, soilMix and charged when task is REPOT (a repot completion that omits what physically changed leaves the crowding ratio computed against a pot that no longer exists) — and forbids all three, plus refreshedOn, on every other task.
 
 ### Rules enforced outside the schema
 
