@@ -12,7 +12,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 | `potType` | `terracotta` \| `unglazed-ceramic` \| `glazed-ceramic` \| `plastic` \| `porcelain` \| `metal` \| `concrete` \| `fabric` \| `other` \| null | optional |
 | `potSizeCm` | integer (0, ∞] \| null | optional |
 | `hasDrainage` | boolean \| null | optional |
-| `soilMix` | `aroid` \| `all-purpose` \| `cactus-succulent` \| `orchid-bark` \| `peat-based` \| `coco-coir` \| `semi-hydro` \| `other` \| null | optional |
+| `soilMix` | `aroid` \| `all-purpose` \| `all-purpose-perlite` \| `cactus-succulent` \| `orchid-bark` \| `peat-based` \| `coco-coir` \| `semi-hydro` \| `other` \| null | optional |
 | `growthHabit` | `upright` \| `climber` \| `trailing` \| `clumping` \| `rosette` \| `tree` \| `shrub` \| `other` \| null | optional |
 | `ageMonths` | integer [0, ∞] \| null | optional |
 | `nearHeater` | boolean \| null | optional |
@@ -273,6 +273,22 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 {
   "type": "plant.gift",
   "plantId": "PLANT_ID"
+}
+```
+
+### `substrate.refresh`
+
+| Field | Type | Required |
+|---|---|---|
+| `plantId` | string | optional |
+| `refreshedOn` | string | required |
+| `charged` | boolean | optional |
+
+```json
+{
+  "type": "substrate.refresh",
+  "plantId": "PLANT_ID",
+  "refreshedOn": "2026-07-20"
 }
 ```
 

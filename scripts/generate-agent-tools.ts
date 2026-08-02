@@ -49,6 +49,10 @@ const example: Record<string, unknown> = {
   'care.done': { type: 'care.done', plantId: 'PLANT_ID', task: 'WATER', occurredOn: '2026-07-20' },
   'plant.memorialize': { type: 'plant.memorialize', plantId: 'PLANT_ID' },
   'plant.gift': { type: 'plant.gift', plantId: 'PLANT_ID' },
+  // `plantId` is SUPPLIED here (unlike the doctor's example above) — the gardener's token is owner-
+  // anchored, not pinned to one plant, so it must name which plant's substrate it is recording as
+  // refreshed. `charged` is optional (omitted means "derive from the mix").
+  'substrate.refresh': { type: 'substrate.refresh', plantId: 'PLANT_ID', refreshedOn: '2026-07-20' },
   'place.create': { type: 'place.create', cityId: 'CITY_ID', name: 'Study window', indoor: true, lightType: 'BRIGHT_INDIRECT', airflow: 'some' },
   'place.update': { type: 'place.update', placeId: 'PLACE_ID', airflow: 'breezy' },
   'city.create': { type: 'city.create', name: 'Guadalajara', latitude: 20.67, longitude: -103.35, timezone: 'America/Mexico_City' },
