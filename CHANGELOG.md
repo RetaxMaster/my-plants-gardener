@@ -47,6 +47,21 @@ plant owner and for whoever operates this agent, not a commit dump.
   plant nested under a city and a place, the map now lists these plants separately, under their own
   section, carrying the place and city they last lived in as a reminder rather than a live location.
 
+### Changed
+
+- **The Gardener now receives the research brief as the primary species source.** Each plant's species
+  record now includes the raw research that species was curated from — the authoritative source the
+  Gardener reasons over. The published blogpost is the editorial reinterpretation written for humans; the
+  brief is what makes placement and fit decisions scientifically grounded. Until the one-time re-curation
+  completes, the context falls back to the published guide and says so explicitly.
+- **Every operation field's semantics are now documented in `AGENT-TOOLS.md`, closing the
+  height-in-prose gap.** Measurements belong in structured fields (`sizeCm` for plant height, `potSizeCm`
+  for pot rim diameter, `ageMonths` for plant age), not in free-text prose. The care engine reads the
+  fields and cannot read `observations`, so a height recorded only in prose is invisible to every schedule
+  it should have moved — a plant could be scheduled to repot in 538 days despite being twice the pot size.
+  The Gardener is now required to read and refer to `AGENT-TOOLS.md` before proposing, so it names each
+  measurement in its proper field and never leaves it in prose.
+
 ### Security
 
 - **Reads can never cross into another owner's garden.** Every database read the Gardener issues is anchored
