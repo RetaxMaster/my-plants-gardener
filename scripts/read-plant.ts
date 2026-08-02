@@ -6,6 +6,7 @@ import { createApiClient, ApiRequestError } from '@retaxmaster/my-plants-species
 import { resolveSessionWorkspace } from '@retaxmaster/my-plants-species-schema/agent-kit/workspace';
 import { loadGardenerContext, WORKSPACE_ENV } from './lib/context.js';
 import { loadPlantDetail, loadPlantProfile, loadSpeciesForOwnedPlant, loadClinicalRecords } from './lib/queries.js';
+import { buildSpeciesContext } from './lib/species-context.js';
 
 // One owned plant, in depth (Spec 4 §4.3). The gardener reads a plant to judge its PLACEMENT and MATERIALS —
 // its detail, its profile, its species record, its computed care plan, and the doctor's clinical records as
@@ -59,7 +60,11 @@ async function main(): Promise<void> {
       window: { months },
       plant: detail[0],
       profile: profile ?? null,
-      species: species ?? null,
+      // The species record is NORMALIZED through the shared schema before the agent sees it (Spec 3 §3.4) —
+      // the raw row would hand a legacy English-only record straight through, and `research_brief` would
+      // arrive as an unnamed column. Same three keys the doctor emits, so the two agents' vocabularies do
+      // not fork.
+      species: buildSpeciesContext(species as never),
       carePlan,
       clinicalRecords,
     };
