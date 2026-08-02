@@ -5,18 +5,18 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 ### `profile.update`
 
-| Field | Type | Required |
-|---|---|---|
-| `windowDistance` | `on-sill` \| `within-1m` \| `1-to-2m` \| `2-to-3m` \| `over-3m` \| `outdoors` \| null | optional |
-| `growLight` | boolean \| null | optional |
-| `potType` | `terracotta` \| `unglazed-ceramic` \| `glazed-ceramic` \| `plastic` \| `porcelain` \| `metal` \| `concrete` \| `fabric` \| `other` \| null | optional |
-| `potSizeCm` | integer (0, ∞] \| null | optional |
-| `hasDrainage` | boolean \| null | optional |
-| `soilMix` | `aroid` \| `all-purpose` \| `all-purpose-perlite` \| `cactus-succulent` \| `orchid-bark` \| `peat-based` \| `coco-coir` \| `semi-hydro` \| `other` \| null | optional |
-| `growthHabit` | `upright` \| `climber` \| `trailing` \| `clumping` \| `rosette` \| `tree` \| `shrub` \| `other` \| null | optional |
-| `ageMonths` | integer [0, ∞] \| null | optional |
-| `nearHeater` | boolean \| null | optional |
-| `plantId` | string | optional |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `windowDistance` | `on-sill` \| `within-1m` \| `1-to-2m` \| `2-to-3m` \| `over-3m` \| `outdoors` \| null | optional |  |
+| `growLight` | boolean \| null | optional |  |
+| `potType` | `terracotta` \| `unglazed-ceramic` \| `glazed-ceramic` \| `plastic` \| `porcelain` \| `metal` \| `concrete` \| `fabric` \| `other` \| null | optional |  |
+| `potSizeCm` | integer (0, ∞] \| null | optional | Pot RIM DIAMETER in centimetres — rim-to-rim across the top, never the radius and never the height. The engine’s crowding index is height ÷ this diameter. |
+| `hasDrainage` | boolean \| null | optional |  |
+| `soilMix` | `aroid` \| `all-purpose` \| `all-purpose-perlite` \| `cactus-succulent` \| `orchid-bark` \| `peat-based` \| `coco-coir` \| `semi-hydro` \| `other` \| null | optional |  |
+| `growthHabit` | `upright` \| `climber` \| `trailing` \| `clumping` \| `rosette` \| `tree` \| `shrub` \| `other` \| null | optional |  |
+| `ageMonths` | integer [0, ∞] \| null | optional | The plant’s AGE in months (not its height, and not how long it has been tracked). |
+| `nearHeater` | boolean \| null | optional |  |
+| `plantId` | string | optional |  |
 
 ```json
 {
@@ -44,14 +44,14 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 ### `progress.create`
 
-| Field | Type | Required |
-|---|---|---|
-| `plantId` | string | optional |
-| `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | required |
-| `occurredOn` | string | optional |
-| `observations` | string \| null | optional |
-| `sizeCm` | integer (0, 2147483647] \| null | optional |
-| `tags` | array of `NEW_LEAF` \| `FLOWERING` \| `SEEDLING` \| `LARGE_LEAVES` \| `NEW_SHOOTS` \| `BLOOM_COMPLETED` \| `FALLEN_LEAF` \| `DROOPING` \| `DRY_LEAVES` \| `YELLOWING_LEAVES` \| `NOT_GROWING` \| `STUNTED_GROWTH` \| `LEANING` \| `PESTS` \| `FUNGUS` \| `SPOTS` \| `DISCOLORATION` | optional |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `plantId` | string | optional |  |
+| `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | required |  |
+| `occurredOn` | string | optional |  |
+| `observations` | string \| null | optional |  |
+| `sizeCm` | integer (0, 2147483647] \| null | optional | The plant’s HEIGHT in centimetres at the time of this entry. This is the ONLY height the care engine reads — a height written into `observations` is invisible to it and will not affect any schedule. Record it here whenever you know it. |
+| `tags` | array of `NEW_LEAF` \| `FLOWERING` \| `SEEDLING` \| `LARGE_LEAVES` \| `NEW_SHOOTS` \| `BLOOM_COMPLETED` \| `FALLEN_LEAF` \| `DROOPING` \| `DRY_LEAVES` \| `YELLOWING_LEAVES` \| `NOT_GROWING` \| `STUNTED_GROWTH` \| `LEANING` \| `PESTS` \| `FUNGUS` \| `SPOTS` \| `DISCOLORATION` | optional |  |
 
 ```json
 {
@@ -65,15 +65,15 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 ### `progress.update`
 
-| Field | Type | Required |
-|---|---|---|
-| `plantId` | string | optional |
-| `entryId` | string | required |
-| `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | optional |
-| `occurredOn` | string | optional |
-| `observations` | string \| null | optional |
-| `sizeCm` | integer (0, 2147483647] \| null | optional |
-| `tags` | array of `NEW_LEAF` \| `FLOWERING` \| `SEEDLING` \| `LARGE_LEAVES` \| `NEW_SHOOTS` \| `BLOOM_COMPLETED` \| `FALLEN_LEAF` \| `DROOPING` \| `DRY_LEAVES` \| `YELLOWING_LEAVES` \| `NOT_GROWING` \| `STUNTED_GROWTH` \| `LEANING` \| `PESTS` \| `FUNGUS` \| `SPOTS` \| `DISCOLORATION` | optional |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `plantId` | string | optional |  |
+| `entryId` | string | required |  |
+| `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | optional |  |
+| `occurredOn` | string | optional |  |
+| `observations` | string \| null | optional |  |
+| `sizeCm` | integer (0, 2147483647] \| null | optional | The plant’s HEIGHT in centimetres at the time of this entry. This is the ONLY height the care engine reads — a height written into `observations` is invisible to it and will not affect any schedule. Record it here whenever you know it. |
+| `tags` | array of `NEW_LEAF` \| `FLOWERING` \| `SEEDLING` \| `LARGE_LEAVES` \| `NEW_SHOOTS` \| `BLOOM_COMPLETED` \| `FALLEN_LEAF` \| `DROOPING` \| `DRY_LEAVES` \| `YELLOWING_LEAVES` \| `NOT_GROWING` \| `STUNTED_GROWTH` \| `LEANING` \| `PESTS` \| `FUNGUS` \| `SPOTS` \| `DISCOLORATION` | optional |  |
 
 ```json
 {
@@ -86,11 +86,11 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 ### `frequency.set`
 
-| Field | Type | Required |
-|---|---|---|
-| `plantId` | string | optional |
-| `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
-| `intervalDays` | integer [1, 3650] | required |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `plantId` | string | optional |  |
+| `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |  |
+| `intervalDays` | integer [1, 3650] | required | The number of DAYS between consecutive occurrences of this task — a cadence, never a date. Setting it overrides the engine’s computed interval for this plant until `frequency.clear`. |
 
 ```json
 {
