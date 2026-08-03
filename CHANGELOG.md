@@ -54,6 +54,11 @@ plant owner and for whoever operates this agent, not a commit dump.
   Gardener reasons over. The published blogpost is the editorial reinterpretation written for humans; the
   brief is what makes placement and fit decisions scientifically grounded. Until the one-time re-curation
   completes, the context falls back to the published guide and says so explicitly.
+- **Completing a REPOT now requires three additional fields.** `care.done` with `task: 'REPOT'` now also
+  requires `potSizeCm` (the new pot's rim diameter), `soilMix`, and `charged` (whether the medium is
+  fresh) — every other `care.done` still takes only `task` and `occurredOn` (plus the Gardener's own
+  `plantId`), and rejects the three REPOT fields outright. `AGENT-TOOLS.md` documents the conditional
+  requirement.
 - **Every operation field's semantics are now documented in `AGENT-TOOLS.md`, closing the
   height-in-prose gap.** Measurements belong in structured fields (`sizeCm` for plant height, `potSizeCm`
   for pot rim diameter, `ageMonths` for plant age), not in free-text prose. The care engine reads the
