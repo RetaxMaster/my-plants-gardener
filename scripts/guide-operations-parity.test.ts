@@ -175,7 +175,7 @@ describe("per-field required-ness agrees across the map, AGENT-TOOLS.md and CLAU
 
     expect(fromToolDoc, 'AGENT-TOOLS.md disagrees with the capability map').toEqual(fromMap);
     expect(fromGuide, 'CLAUDE.md disagrees with the capability map').toEqual(fromMap);
-    expect(fromMap.length, 'the gardener has eleven plant-scoped operations').toBe(11);
+    expect(fromMap.length, 'the gardener has twelve plant-scoped operations').toBe(12);
   });
 
   it('no operation documents `plantId` as optional — the literal regression that was reported', () => {

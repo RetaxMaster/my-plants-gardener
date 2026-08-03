@@ -137,6 +137,26 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 }
 ```
 
+### `care.postpone`
+
+| Field | Type | Required |
+|---|---|---|
+| `plantId` | string | required |
+| `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
+| `occurredOn` | string | required |
+| `postponeToOn` | string | optional |
+| `reason` | `not-needed-yet` \| `needed-cannot-now` \| `could-not-check` | optional |
+
+```json
+{
+  "type": "care.postpone",
+  "plantId": "PLANT_ID",
+  "task": "WATER",
+  "occurredOn": "2026-07-20",
+  "postponeToOn": "2026-07-27"
+}
+```
+
 ### `note.create`
 
 | Field | Type | Required |
@@ -298,7 +318,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 ### Cross-field invariants
 
-- **proposal:** profile.update / plant.update / progress.update / place.update / city.update must each change at least one field (an op carrying only its type + target id is rejected). care.done requires potSizeCm, soilMix and charged when task is REPOT (a repot completion that omits what physically changed leaves the crowding ratio computed against a pot that no longer exists) — and forbids all three, plus refreshedOn, on every other task.
+- **proposal:** profile.update / plant.update / progress.update / place.update / city.update must each change at least one field (an op carrying only its type + target id is rejected). care.done requires potSizeCm, soilMix and charged when task is REPOT (a repot completion that omits what physically changed leaves the crowding ratio computed against a pot that no longer exists) — and forbids all three, plus refreshedOn, on every other task. care.postpone has TWO shapes, each forbidding the other's field: every task EXCEPT REPOT needs postponeToOn (a date strictly after occurredOn) and no reason; REPOT needs a reason (not-needed-yet | needed-cannot-now | could-not-check) and NO postponeToOn.
 
 ### Rules enforced outside the schema
 
@@ -307,3 +327,5 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 - `null` clears a nullable field; `[]` clears `tags`; a proposal carries 1–10 operations.
 - A place edit RECOMPUTES the care plan for EVERY plant living in that place — the owner is shown how many, and you must say so in your summary too.
 - There is no operation that deletes a plant, a place or a city (they do not exist, for anybody), and you cannot delete a progress entry (that operation exists but is not yours).
+- Why care.postpone treats REPOT differently: a repot is an INSPECTION here, not a scheduled chore, so putting one off means saying WHY and the app derives the wait itself — a date would be silently thrown away. (`care.done` DOES take `REPOT`: finishing a repot is a fact you can report.)
+- If a plant has an unanswered repot questionnaire open in the app, ONLY the owner can settle it: your `care.postpone` on `REPOT` for that plant will be refused. Say so and let them answer it — you cannot answer it for them.

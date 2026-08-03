@@ -186,9 +186,21 @@ The operations you may propose, and nothing else:
 | `frequency.set` | `plantId` (required), `task` (required), `intervalDays` (required, 1–3650) | The per-plant cadence override ("move the **cycles**"). |
 | `frequency.clear` | `plantId` (required), `task` (required) | Removes the override. |
 | `care.done` | `plantId` (required), `task` (required), `occurredOn` (required) | Marks a care task done; also feeds the engine's adaptation. |
+| `care.postpone` | `plantId` (required), `task` (required), `occurredOn` (required), then **either** `postponeToOn` **or** `reason` — see below | Pushes a task out, exactly as the owner's own Postpone button does; it feeds the engine's adaptation the same way. |
 | `plant.memorialize` | `plantId` (required) | Move the named plant to the pantheon (permanent memorial). **Ask for explicit verbal authorization first.** |
 | `plant.gift` | `plantId` (required) | Mark the named plant as gifted (reversible by the owner). **Ask for explicit verbal authorization first.** |
 | `substrate.refresh` | `plantId` (required), `refreshedOn` (required), `charged` (optional) | Records that the named plant's medium was renewed on a given calendar date. Omit `charged` to let the engine derive it from the mix; set it explicitly only when you actually know the medium's nutrient state. |
+
+**`care.postpone` has two shapes, and each one forbids the other's field.** For every task **except**
+`REPOT`, send `postponeToOn` — the calendar day the task moves to, which must be strictly after
+`occurredOn` — and no `reason`. For `REPOT`, send a `reason` (`not-needed-yet`, `needed-cannot-now` or
+`could-not-check`) and **no** `postponeToOn`. The reason is why: in this app a repot is an **inspection**,
+not a scheduled chore, so putting one off means saying *why* and letting the app derive how long to wait
+from that. A date there would be accepted by nothing and quietly thrown away, which is worse than being
+refused. Note the deliberate asymmetry with `care.done`, which **does** take `REPOT`: finishing a repot is
+a fact you can report; deciding when the next inspection is due is not. **And if a plant has an unanswered
+repot questionnaire open in the app, only the owner can settle it — your `care.postpone` on `REPOT` for
+that plant will be refused. Tell them, and let them answer it; you cannot answer it for them.**
 
 Tasks that may carry a cadence: `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST` — never
 `PROGRESS`. Dates are calendar dates (`YYYY-MM-DD`), never ISO instants. Clearing is `null` (and `[]` for
@@ -197,10 +209,10 @@ Tasks that may carry a cadence: `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_
 **Rules you must follow when proposing:**
 
 - **You have NO pinned plant — name the plant on every plant-scoped operation.** Unlike the doctor, whose
-  token pins one plant, your token is anchored to the **owner**, not to a single plant. So the eleven
+  token pins one plant, your token is anchored to the **owner**, not to a single plant. So the twelve
   plant-scoped operations — `profile.update`, `plant.update`, `progress.create`, `progress.update`,
-  `frequency.set`, `frequency.clear`, `care.done`, `note.create`, `plant.memorialize`, `plant.gift`,
-  `substrate.refresh` — MUST each carry a `plantId` naming their target plant. You read that id from the
+  `frequency.set`, `frequency.clear`, `care.done`, `care.postpone`, `note.create`, `plant.memorialize`,
+  `plant.gift`, `substrate.refresh` — MUST each carry a `plantId` naming their target plant. You read that id from the
   garden map (`dump-garden`) or a plant's detail (`read-plant`); a plant-scoped operation with no `plantId`
   cannot be resolved to a plant and is rejected. The place and city operations (`place.*`, `city.*`) and
   `plant.create` address their target by their own ids and carry no `plantId`.

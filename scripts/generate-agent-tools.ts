@@ -54,6 +54,9 @@ const example: Record<string, unknown> = {
   'frequency.set': { type: 'frequency.set', plantId: 'PLANT_ID', task: 'WATER', intervalDays: 9 },
   'frequency.clear': { type: 'frequency.clear', plantId: 'PLANT_ID', task: 'WATER' },
   'care.done': { type: 'care.done', plantId: 'PLANT_ID', task: 'WATER', occurredOn: '2026-07-20' },
+  // The DATE branch is the one you reach for almost always, so it is the one shown. The REPOT branch is
+  // different in kind (a reason, never a date) and is spelled out in the invariants below.
+  'care.postpone': { type: 'care.postpone', plantId: 'PLANT_ID', task: 'WATER', occurredOn: '2026-07-20', postponeToOn: '2026-07-27' },
   'plant.memorialize': { type: 'plant.memorialize', plantId: 'PLANT_ID' },
   'plant.gift': { type: 'plant.gift', plantId: 'PLANT_ID' },
   // `plantId` is SUPPLIED here (unlike the doctor's example above) — the gardener's token is owner-
@@ -79,7 +82,8 @@ const invariants: InvariantMap = {
   schemaAttached: {
     proposal:
       'profile.update / plant.update / progress.update / place.update / city.update must each change at least one field (an op carrying only its type + target id is rejected). ' +
-      'care.done requires potSizeCm, soilMix and charged when task is REPOT (a repot completion that omits what physically changed leaves the crowding ratio computed against a pot that no longer exists) — and forbids all three, plus refreshedOn, on every other task.',
+      'care.done requires potSizeCm, soilMix and charged when task is REPOT (a repot completion that omits what physically changed leaves the crowding ratio computed against a pot that no longer exists) — and forbids all three, plus refreshedOn, on every other task. ' +
+      'care.postpone has TWO shapes, each forbidding the other\'s field: every task EXCEPT REPOT needs postponeToOn (a date strictly after occurredOn) and no reason; REPOT needs a reason (not-needed-yet | needed-cannot-now | could-not-check) and NO postponeToOn.',
   },
   external: [
     'One operation per target — two ops touching the same field, entry, place, city or task are rejected.',
@@ -87,6 +91,8 @@ const invariants: InvariantMap = {
     '`null` clears a nullable field; `[]` clears `tags`; a proposal carries 1–10 operations.',
     'A place edit RECOMPUTES the care plan for EVERY plant living in that place — the owner is shown how many, and you must say so in your summary too.',
     'There is no operation that deletes a plant, a place or a city (they do not exist, for anybody), and you cannot delete a progress entry (that operation exists but is not yours).',
+    'Why care.postpone treats REPOT differently: a repot is an INSPECTION here, not a scheduled chore, so putting one off means saying WHY and the app derives the wait itself — a date would be silently thrown away. (`care.done` DOES take `REPOT`: finishing a repot is a fact you can report.)',
+    'If a plant has an unanswered repot questionnaire open in the app, ONLY the owner can settle it: your `care.postpone` on `REPOT` for that plant will be refused. Say so and let them answer it — you cannot answer it for them.',
   ],
 };
 

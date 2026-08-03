@@ -41,7 +41,7 @@ describe('AGENT-TOOLS.md is derived from the capability map', () => {
   // repo's generated doc. It cannot come from the Zod schema — `plantId` is `.optional()` there so the
   // DOCTOR can omit it entirely — so if the generator ever stops threading `requireFields`, the doc
   // silently goes back to telling the agent a mandatory field is optional. That is exactly what happened,
-  // on eleven operations at once, with every test in this repo green.
+  // on eleven operations at once, with every test in this repo green. (Twelve since `care.postpone`.)
   it('marks every field the map REQUIRES of the gardener as `required` in the generated doc', () => {
     let asserted = 0;
     for (const type of PROPOSAL_OPERATION_TYPES) {
@@ -56,8 +56,8 @@ describe('AGENT-TOOLS.md is derived from the capability map', () => {
         asserted += 1;
       }
     }
-    // Never let this pass vacuously: the gardener really does have eleven required-`plantId` operations,
+    // Never let this pass vacuously: the gardener really does have twelve required-`plantId` operations,
     // so a run that asserted nothing means the map, not the doc, is what broke.
-    expect(asserted, 'the map required nothing of the gardener — that is itself the regression').toBe(11);
+    expect(asserted, 'the map required nothing of the gardener — that is itself the regression').toBe(12);
   });
 });

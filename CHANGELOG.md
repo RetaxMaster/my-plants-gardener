@@ -5,6 +5,16 @@ plant owner and for whoever operates this agent, not a commit dump.
 
 ## Unreleased
 
+### Added
+
+- **The Gardener can now propose postponing a care task on any plant in the garden**, not only marking one
+  done. It uses the owner's own Postpone path, so a postponement it proposes teaches the schedule exactly as
+  the owner's would, and — like every operation aimed at one plant — it must name the plant it means. A
+  repot is the one task postponed by a reason rather than a date, because a repot is an inspection here and
+  the app derives the wait from the reason; and if a plant has an unanswered repot checklist open, only the
+  owner can settle it. Both the playbook and the tool reference spell this out, including why the rule
+  differs from marking a repot done.
+
 ### Fixed
 
 - **The tool reference no longer contradicts the playbook about naming the plant.** Every operation the
