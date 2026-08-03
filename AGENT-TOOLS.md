@@ -16,7 +16,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 | `growthHabit` | `upright` \| `climber` \| `trailing` \| `clumping` \| `rosette` \| `tree` \| `shrub` \| `other` \| null | optional |  |
 | `ageMonths` | integer [0, ∞] \| null | optional | The plant’s AGE in months (not its height, and not how long it has been tracked). |
 | `nearHeater` | boolean \| null | optional |  |
-| `plantId` | string | optional |  |
+| `plantId` | string | required |  |
 
 ```json
 {
@@ -30,7 +30,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 | `nickname` | string \| null | optional |
 | `placeId` | string | optional |
 
@@ -46,7 +46,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `plantId` | string | optional |  |
+| `plantId` | string | required |  |
 | `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | required |  |
 | `occurredOn` | string | optional |  |
 | `observations` | string \| null | optional |  |
@@ -67,7 +67,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `plantId` | string | optional |  |
+| `plantId` | string | required |  |
 | `entryId` | string | required |  |
 | `health` | `SICK` \| `POOR` \| `GOOD` \| `EXCELLENT` | optional |  |
 | `occurredOn` | string | optional |  |
@@ -88,7 +88,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `plantId` | string | optional |  |
+| `plantId` | string | required |  |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |  |
 | `intervalDays` | integer [1, 3650] | required | The number of DAYS between consecutive occurrences of this task — a cadence, never a date. Setting it overrides the engine’s computed interval for this plant until `frequency.clear`. |
 
@@ -105,7 +105,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
 
 ```json
@@ -120,7 +120,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 | `task` | `WATER` \| `FERTILIZE` \| `REPOT` \| `ROTATE` \| `CLEAN_LEAVES` \| `MIST` | required |
 | `occurredOn` | string | required |
 | `potSizeCm` | integer (0, 500] | optional |
@@ -141,7 +141,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 | `body` | string | required |
 
 ```json
@@ -258,7 +258,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 
 ```json
 {
@@ -271,7 +271,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 
 ```json
 {
@@ -284,7 +284,7 @@ Your one write tool is `npm run propose`. It records a proposal: `{ "summary": "
 
 | Field | Type | Required |
 |---|---|---|
-| `plantId` | string | optional |
+| `plantId` | string | required |
 | `refreshedOn` | string | required |
 | `charged` | boolean | optional |
 

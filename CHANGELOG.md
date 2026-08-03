@@ -5,6 +5,18 @@ plant owner and for whoever operates this agent, not a commit dump.
 
 ## Unreleased
 
+### Fixed
+
+- **The tool reference no longer contradicts the playbook about naming the plant.** Every operation the
+  Gardener proposes against one of your plants has to say which plant it means — the playbook has always
+  said so, and the API refuses the request otherwise. The generated tool reference said the opposite,
+  marking that field "optional" on all eleven of those operations, so the agent could follow its own
+  reference straight into a request that could never succeed. Required-ness in the reference is now
+  worked out for the Gardener's own role rather than from the shared data contract (which has to leave
+  the field optional so the Plant Doctor, already tied to one plant, can leave it out), and a check in
+  this repo's test run now compares the playbook, the generated reference and the underlying capability
+  table field by field — if any two ever disagree again, the build fails instead of the agent finding out.
+
 ### Added
 
 - **The Gardener: a new agent for your whole garden.** Where the Plant Doctor looks after one plant, the

@@ -10,7 +10,9 @@ import {
 import {
   permittedTypesFor,
   omittedFieldsFor,
+  requiredFieldsFor,
   assertOmitFieldsAreRealFields,
+  assertRequireFieldsAreRealFields,
   type AgentScope,
 } from '@retaxmaster/my-plants-species-schema/agent-capabilities';
 import { renderToolDoc, assertInvariantsCover, syncToolDoc, type InvariantMap } from '@retaxmaster/my-plants-species-schema/tool-doc';
@@ -29,6 +31,11 @@ const SCOPE: AgentScope = 'gardener';
 // `omitFields` entry actually names a real field — validated here at generation time (a typo fails THIS
 // build loudly) and by the shared package's own suite (every test-all.sh run validates the whole map).
 assertOmitFieldsAreRealFields();
+// The mirror guard, for the mirror mechanism (`requireFields`, read below). A typo there would REQUIRE
+// nothing — leaving the field it meant to mark obligatory documented as "optional", which is the exact
+// doc-lies-to-the-agent defect the whole mechanism exists to close, arriving through a typo instead of a
+// missing entry. It also refuses a field that is both withheld from and required of the same scope.
+assertRequireFieldsAreRealFields();
 
 // Each example MUST be valid against its member schema (the renderer safeParse-gates them). Values are drawn
 // from the shared vocabulary: lightType from LIGHT_TYPES, airflow from AIRFLOW, humidityCharacter from
@@ -95,7 +102,16 @@ const tools = members
   .map((m) => ({ name: (m.shape as Record<string, { _def: { value: string } }>).type._def.value as ProposalOperationType, schema: m }))
   // The map is the ONLY source: the doc lists exactly what the API will accept from this scope.
   .filter((t) => permitted.has(t.name))
-  .map((t) => ({ ...t, example: example[t.name], omitFields: omittedFieldsFor(SCOPE, t.name) }));
+  // `requireFields` is fed from the SAME map as `omitFields`, and for the mirror reason. The `Required`
+  // column used to be computed from the Zod schema alone — which is structurally unable to be right here,
+  // because ONE operation union serves BOTH scopes while this doc serves exactly one. A field a scope must
+  // always supply is `.optional()` in the union precisely so the OTHER scope can omit it.
+  .map((t) => ({
+    ...t,
+    example: example[t.name],
+    omitFields: omittedFieldsFor(SCOPE, t.name),
+    requireFields: requiredFieldsFor(SCOPE, t.name),
+  }));
 
 const body = renderToolDoc({
   title: 'The Gardener — tool reference',

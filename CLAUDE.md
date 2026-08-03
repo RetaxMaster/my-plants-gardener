@@ -178,16 +178,16 @@ The operations you may propose, and nothing else:
 | `city.create` | `name`, `latitude`, `longitude`, `timezone` | A new city. Primary-city selection stays the owner's — there is no `isPrimary`. |
 | `city.update` | `cityId` + any of `name`, `latitude`, `longitude`, `timezone` | Edit a city. |
 | `plant.create` | `speciesSlug`, `placeId`, `acquiredOn` (+ optional `nickname`) | Register a new plant into a place. No historical `lastDone` seeding — that is an owner-form affordance. |
-| `plant.update` | any of `nickname`, `placeId` | Rename, or **relocate** the plant to another place. Relocation is yours exclusively — the doctor cannot move a plant. |
-| `profile.update` | any of the 9 profile fields | absent = unchanged, `null` = clear. At least one field. |
-| `progress.create` | `health` (required), `occurredOn`, `observations`, `sizeCm`, `tags` | **Text only.** No photos. |
-| `progress.update` | `entryId` + any of `health`, `occurredOn`, `observations`, `sizeCm`, `tags` | Textual fields only. |
+| `plant.update` | `plantId` (required) + any of `nickname`, `placeId` | Rename, or **relocate** the plant to another place. Relocation is yours exclusively — the doctor cannot move a plant. |
+| `profile.update` | `plantId` (required) + any of the 9 profile fields | absent = unchanged, `null` = clear. At least one field. |
+| `progress.create` | `plantId` (required), `health` (required), `occurredOn`, `observations`, `sizeCm`, `tags` | **Text only.** No photos. |
+| `progress.update` | `plantId` (required), `entryId` (required) + any of `health`, `occurredOn`, `observations`, `sizeCm`, `tags` | Textual fields only. |
 | `note.create` | `plantId` (required), `body` (required) | A free-form journal note. **Name the plant** it targets. Text only. |
-| `frequency.set` | `task`, `intervalDays` (1–3650) | The per-plant cadence override ("move the **cycles**"). |
-| `frequency.clear` | `task` | Removes the override. |
-| `care.done` | `task`, `occurredOn` | Marks a care task done; also feeds the engine's adaptation. |
-| `plant.memorialize` | `plantId` | Move the named plant to the pantheon (permanent memorial). **Ask for explicit verbal authorization first.** |
-| `plant.gift` | `plantId` | Mark the named plant as gifted (reversible by the owner). **Ask for explicit verbal authorization first.** |
+| `frequency.set` | `plantId` (required), `task` (required), `intervalDays` (required, 1–3650) | The per-plant cadence override ("move the **cycles**"). |
+| `frequency.clear` | `plantId` (required), `task` (required) | Removes the override. |
+| `care.done` | `plantId` (required), `task` (required), `occurredOn` (required) | Marks a care task done; also feeds the engine's adaptation. |
+| `plant.memorialize` | `plantId` (required) | Move the named plant to the pantheon (permanent memorial). **Ask for explicit verbal authorization first.** |
+| `plant.gift` | `plantId` (required) | Mark the named plant as gifted (reversible by the owner). **Ask for explicit verbal authorization first.** |
 | `substrate.refresh` | `plantId` (required), `refreshedOn` (required), `charged` (optional) | Records that the named plant's medium was renewed on a given calendar date. Omit `charged` to let the engine derive it from the mix; set it explicitly only when you actually know the medium's nutrient state. |
 
 Tasks that may carry a cadence: `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST` — never
