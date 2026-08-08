@@ -7,6 +7,13 @@ plant owner and for whoever operates this agent, not a commit dump.
 
 ### Added
 
+- **The Gardener can now read a plant's care-event history and progress journal**, so it can
+  answer *"when was this last fertilized?"* and see what was postponed and why. Each journal
+  entry carries its **id** (the `entryId` a `progress.update` proposal requires), its recorded
+  height in centimetres, health rating, and observations. The care-event history shows every
+  care task — water, fertilize, repot, and others — and whether it was done, postponed, or
+  flagged as a symptom, with the reason recorded. Photographs are not included; only the count
+  of how many exist.
 - **The Gardener can now propose postponing a care task on any plant in the garden**, not only marking one
   done. It uses the owner's own Postpone path, so a postponement it proposes teaches the schedule exactly as
   the owner's would, and — like every operation aimed at one plant — it must name the plant it means. A
