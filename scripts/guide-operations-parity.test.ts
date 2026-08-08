@@ -37,6 +37,36 @@ describe("CLAUDE.md's operations table matches the gardener's permitted operatio
     expect(extra, `CLAUDE.md documents an operation the gardener may not propose: ${extra.join(', ') || '(none)'}`).toEqual([]);
   });
 
+  // Mirrors the doctor's copy of this linter
+  // (`repos/my-plants-plant-doctor/scripts/guide-operations-parity.test.ts`). Commit 1f6dd74 added a
+  // prose-count assertion to THAT copy only, one-sided — exactly the drift-between-parallel-copies bug
+  // class this repo pair keeps closing: two independently-maintained copies of one linter must not
+  // disagree about what they check. The gardener's CLAUDE.md states no count today ("The operations you
+  // may propose, and nothing else:"), so this assertion is CONDITIONAL: it always requires the
+  // introducing sentence to exist (a wording change is still caught), and ONLY IF the sentence names a
+  // count word does it assert that word equals the number of operations `permittedTypesFor('gardener')`
+  // returns. It exists so that adding a count to the gardener's guide later cannot go stale silently.
+  it('the prose sentence introducing the table, if it names a count, matches the number of permitted operations', () => {
+    const guide = readFileSync(CLAUDE_MD_PATH, 'utf8');
+    const WORDS = [
+      'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
+      'nineteen', 'twenty', 'twenty-one', 'twenty-two', 'twenty-three', 'twenty-four', 'twenty-five',
+    ];
+    const expected = permittedTypesFor('gardener').length;
+    const match = guide.match(/The (?:([a-z-]+) )?operations you may propose/i);
+    expect(match, 'the sentence introducing the operations table was not found — did its wording change?').not.toBeNull();
+    if (match![1] === undefined) {
+      // The gardener's guide names no count today — nothing to check against yet, and that is the
+      // CORRECT verdict for this assertion, not a skipped one.
+      return;
+    }
+    expect(
+      match![1].toLowerCase(),
+      `the guide says "${match![1]}" but the gardener may propose ${expected} operations`,
+    ).toBe(WORDS[expected]);
+  });
+
   it('the extraction itself is sound: it found more than zero rows', () => {
     const guide = readFileSync(CLAUDE_MD_PATH, 'utf8');
     expect(operationsInGuide(guide).length).toBeGreaterThan(0);
