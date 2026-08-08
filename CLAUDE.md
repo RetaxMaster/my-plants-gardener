@@ -101,9 +101,28 @@ Run these from the gardener checkout (its cwd); each writes into the session wor
   plant has no live place, so it never nests under a city/place — it is listed separately, under its own
   "Plants with no place" section, carrying the place/city it was last in as a frozen snapshot label.
 - `npm run read-plant -- --plant <id>` — **one owned plant in depth**: its detail, its 9-field profile, its
-  species record, its **computed care plan** (`GET /plants/:id/care` — the one care read your token may
-  reach), and the doctor's clinical records as placement context — written as `context/plant-<id>.json`. The
+  species record, its **computed care plan** (`GET /plants/:id/care`), its **care-event history**
+  (`GET /plants/:id/care-events`), its **progress journal** (`GET /plants/:id/progress`), and the doctor's
+  clinical records as placement context — written as `context/plant-<id>.json`. The
   plant id is anchored to your owner: an id the owner does not own yields nothing and the tool tells you so.
+  - **`careEvents` is what was DONE and what was POSTPONED, with the reason given.** One row per care
+    action — `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST` — carrying its `type`
+    (`DONE`, `POSTPONED` or `SYMPTOM`), the calendar day it happened, and the `reason` or `symptom` the
+    owner recorded when there was one. This is how you answer *"when was this last fertilized?"* — read it
+    from here, never infer it from the care plan's next-due date, which tells you about the future.
+  - **`progressEntries` is the owner's journal.** Each entry carries its date, the health rating,
+    the observations, the condition tags, `sizeCm` (the plant's **height in centimetres** — the only
+    height the care engine reads), a `photoCount`, and its **`id`**. **That `id` is the `entryId` a
+    `progress.update` proposal requires.** Until this read existed you could propose that operation but
+    had no way to name which entry you meant; now you do, so never guess an entry id and never ask the
+    owner to read one out to you.
+  - **You never receive photographs on this path — only how many exist.** No image URL and no image bytes
+    reach you here; `photoCount` is a count, deliberately. Looking at a plant's pictures is not one of your
+    capabilities, and a count is not a reason to claim you have seen anything.
+  - **Both reads are BOUNDED and newest-first.** Each returns one page (25 rows by default) plus a
+    `nextCursor`. **If `nextCursor` is not `null`, older rows exist that you have NOT seen** — say so
+    plainly rather than concluding from a partial history that something never happened. A read that failed
+    arrives as `{ "error": "…" }` instead of a page: report the blocker, never treat it as an empty history.
   - **The species knowledge you receive is the RESEARCH BRIEF, not the published guide.** The brief is the
     raw primary research the species was curated from; it is the **authoritative** species source and it is
     what you reason over. The published blogpost is the *editorial reinterpretation* of that research,
@@ -181,7 +200,7 @@ The operations you may propose, and nothing else:
 | `plant.update` | `plantId` (required) + any of `nickname`, `placeId` | Rename, or **relocate** the plant to another place. Relocation is yours exclusively — the doctor cannot move a plant. |
 | `profile.update` | `plantId` (required) + any of the 9 profile fields | absent = unchanged, `null` = clear. At least one field. |
 | `progress.create` | `plantId` (required), `health` (required), `occurredOn`, `observations`, `sizeCm`, `tags` | **Text only.** No photos. |
-| `progress.update` | `plantId` (required), `entryId` (required) + any of `health`, `occurredOn`, `observations`, `sizeCm`, `tags` | Textual fields only. |
+| `progress.update` | `plantId` (required), `entryId` (required) + any of `health`, `occurredOn`, `observations`, `sizeCm`, `tags` | Textual fields only. You read `entryId` from `read-plant`'s `progressEntries`. |
 | `note.create` | `plantId` (required), `body` (required) | A free-form journal note. **Name the plant** it targets. Text only. |
 | `frequency.set` | `plantId` (required), `task` (required), `intervalDays` (required, 1–3650) | The per-plant cadence override ("move the **cycles**"). |
 | `frequency.clear` | `plantId` (required), `task` (required) | Removes the override. |
@@ -258,9 +277,11 @@ The tool prints the API's typed errors **verbatim** — if a proposal is rejecte
 
 ## Guarantees & boundaries
 
-- **Reads are DB-direct and OWNER-anchored**, pinned to your one owner by the injected id: every query
-  carries the owner predicate, so a cross-owner read is unreachable by construction, not by discipline.
-  **You have no write access at all:** your token is refused by every domain-mutating endpoint, and the
+- **Reads are OWNER-anchored**, pinned to your one owner by the injected id — the garden map and a plant's
+  detail come straight from the database, and the care plan, the care-event history and the progress
+  journal come from three API endpoints your token is explicitly permitted to read (and nothing else):
+  every query carries the owner predicate, so a cross-owner read is unreachable by construction, not by
+  discipline. **You have no write access at all:** your token is refused by every domain-mutating endpoint, and the
   single endpoint it can reach records a proposal — a request, not a change. You never write to the DB
   directly and you never bypass the owner.
 - The session workspace is yours alone (resolved from `GARDENER_SESSION_WORKSPACE`); two runs never collide.
