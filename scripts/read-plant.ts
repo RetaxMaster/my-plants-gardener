@@ -7,6 +7,7 @@ import { resolveSessionWorkspace } from '@retaxmaster/my-plants-species-schema/a
 import { buildSpeciesContext } from '@retaxmaster/my-plants-species-schema/agent-kit/species-context';
 import { loadGardenerContext, WORKSPACE_ENV } from './lib/context.js';
 import { loadPlantDetail, loadPlantProfile, loadSpeciesForOwnedPlant, loadClinicalRecords } from './lib/queries.js';
+import { loadPlantReads } from './lib/plant-reads.js';
 
 // One owned plant, in depth (Spec 4 §4.3). The gardener reads a plant to judge its PLACEMENT and MATERIALS —
 // its detail, its profile, its species record, its computed care plan, and the doctor's clinical records as
@@ -54,6 +55,11 @@ async function main(): Promise<void> {
       carePlan = { error: err instanceof ApiRequestError ? err.message : String((err as Error)?.message ?? err) };
     }
 
+    // Part E (spec §9): the plant's care-event history and its progress journal, over the two routes the
+    // API marks for BOTH agent scopes. Both are bounded pages, newest first, and the journal is
+    // PHOTO-STRIPPED — counts only, never a URL and never bytes.
+    const reads = await loadPlantReads(client, plantId);
+
     const plantContext = {
       generatedAt: new Date().toISOString(),
       ownerId: ctx.ownerId,
@@ -67,6 +73,9 @@ async function main(): Promise<void> {
       species: buildSpeciesContext(species as never),
       carePlan,
       clinicalRecords,
+      // careEvents + progressEntries. Spread LAST so the two keys sit at the end of the context file,
+      // where the agent reads them after the plant's constants — history is context, not identity.
+      ...reads,
     };
 
     const dir = join(workspace, 'context');
@@ -74,7 +83,13 @@ async function main(): Promise<void> {
     const outPath = join(dir, `plant-${plantId}.json`);
     writeFileSync(outPath, JSON.stringify(plantContext, null, 2) + '\n', 'utf8');
     // ABSOLUTE path: cwd stays on the checkout, so read/pass this exact path (and hand it to any subagent).
-    console.log(`Wrote plant ${plantId} (${clinicalRecords.length} clinical records) to:`);
+    // Report COUNTS, so a blocked read is visible in the tool's own output instead of looking like an
+    // empty history. A read that failed carries `{ error }` and has no `items`.
+    const count = (r: unknown) => (r && typeof r === 'object' && 'items' in r ? (r as { items: unknown[] }).items.length : 'ERROR');
+    console.log(
+      `Wrote plant ${plantId} (${clinicalRecords.length} clinical records, ` +
+        `${count(reads.careEvents)} care events, ${count(reads.progressEntries)} progress entries) to:`,
+    );
     console.log(`  ${outPath}`);
   } finally {
     await conn.end();
