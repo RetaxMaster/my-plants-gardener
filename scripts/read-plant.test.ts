@@ -18,6 +18,14 @@ describe('read-plant.ts uses the shared seams', () => {
     expect(SRC).not.toMatch(/getJson\(`\/plants\/\$\{plantId\}\/(care-events|progress)`\)/);
   });
 
+  it('loads the care plan through the ONE shared seam, never an inline fetch or a filtered copy', () => {
+    expect(SRC).toContain('loadCarePlan(client, plantId)');
+    // The exact regressions: a hand-rolled fetch here would be a second reader of the same route, and a
+    // destructured subset would silently drop the per-task history block before the agent ever sees it.
+    expect(SRC).not.toMatch(/getJson\(`\/plants\/\$\{plantId\}\/care`\)/);
+    expect(SRC).not.toMatch(/const\s*\{[^}]*\}\s*=\s*carePlan/);
+  });
+
   it('never reaches for a photo route — photo/media reads are out of scope for the gardener', () => {
     expect(SRC).not.toContain('/photos');
   });
