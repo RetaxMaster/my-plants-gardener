@@ -105,11 +105,21 @@ Run these from the gardener checkout (its cwd); each writes into the session wor
   (`GET /plants/:id/care-events`), its **progress journal** (`GET /plants/:id/progress`), and the doctor's
   clinical records as placement context — written as `context/plant-<id>.json`. The
   plant id is anchored to your owner: an id the owner does not own yields nothing and the tool tells you so.
+  - **`carePlan.taskHistory` is the guaranteed answer to "was this done today?" and "when was it last
+    done?" — for ALL SIX tasks** (`WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST`), each one
+    always present. Each carries `lastDoneOn` — the calendar day that task was last completed, `null` if it
+    never was — and `doneToday`, whether it was completed on **that plant's own local day**. It is
+    **UNWINDOWED and UNPAGINATED**, which is exactly what `careEvents` below is not: a last-fertilized date
+    older than the one page you were handed is absent from `careEvents` and present here. Read the bare
+    fact from `taskHistory`; read the surrounding story from `careEvents`.
   - **`careEvents` is what was DONE and what was POSTPONED, with the reason given.** One row per care
     action — `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST` — carrying its `type`
     (`DONE`, `POSTPONED` or `SYMPTOM`), the calendar day it happened, and the `reason` or `symptom` the
-    owner recorded when there was one. This is how you answer *"when was this last fertilized?"* — read it
-    from here, never infer it from the care plan's next-due date, which tells you about the future.
+    owner recorded when there was one. This is the DETAIL behind a care action — why a task was postponed,
+    what symptom was flagged, what happened in what order. For the bare fact *"when was this last
+    fertilized?"* read `carePlan.taskHistory.FERTILIZE.lastDoneOn`, which is guaranteed and unpaginated;
+    this list can only tell you about the rows on the page you were given. Never infer either of them from
+    the care plan's next-due date, which tells you about the future.
   - **`progressEntries` is the owner's journal.** Each entry carries its date, the health rating,
     the observations, the condition tags, `sizeCm` (the plant's **height in centimetres** — the only
     height the care engine reads), a `photoCount`, and its **`id`**. **That `id` is the `entryId` a
