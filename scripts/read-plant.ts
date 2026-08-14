@@ -7,8 +7,7 @@ import { resolveSessionWorkspace } from '@retaxmaster/my-plants-species-schema/a
 import { buildSpeciesContext } from '@retaxmaster/my-plants-species-schema/agent-kit/species-context';
 import { loadGardenerContext, WORKSPACE_ENV } from './lib/context.js';
 import { loadPlantDetail, loadPlantProfile, loadSpeciesForOwnedPlant, loadClinicalRecords } from './lib/queries.js';
-import { loadPlantReads } from './lib/plant-reads.js';
-import { loadCarePlan } from './lib/care-plan-read.js';
+import { loadPlantReads, loadCarePlan } from './lib/plant-reads.js';
 
 // One owned plant, in depth (Spec 4 §4.3). The gardener reads a plant to judge its PLACEMENT and MATERIALS —
 // its detail, its profile, its species record, its computed care plan, and the doctor's clinical records as

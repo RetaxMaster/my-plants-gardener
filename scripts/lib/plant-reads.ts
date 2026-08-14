@@ -37,3 +37,20 @@ export async function loadPlantReads(client: ApiClient, plantId: string): Promis
   ]);
   return { careEvents, progressEntries };
 }
+
+/**
+ * The one care read a gardener token may reach: GET /plants/:id/care — the ALREADY-computed care plan (due
+ * tasks, the viability semaphore + reasons, crowding, and the per-task last-done/done-today history).
+ *
+ * The response is returned VERBATIM, and that is the contract, not an implementation detail: the per-task
+ * history block reaches the agent only because nothing here reshapes what the API sent, and a block the API
+ * adds later needs no edit in this repo. A whitelist would be a second, private copy of the response
+ * contract living in a different repository from the contract itself.
+ *
+ * Shares the same TOLERANT posture as the two reads above, through the same `tolerant()` implementation: a
+ * care-plan read failure is not fatal to a placement review, and an agent handed a silent `null` concludes
+ * the plant has no care plan. It is REPORTED as `{ error }`.
+ */
+export async function loadCarePlan(client: ApiClient, plantId: string): Promise<PlantRead> {
+  return tolerant(client, `/plants/${plantId}/care`);
+}
