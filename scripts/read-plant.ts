@@ -2,12 +2,13 @@ import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { connectToDb } from '@retaxmaster/my-plants-species-schema/agent-kit/db';
-import { createApiClient, ApiRequestError } from '@retaxmaster/my-plants-species-schema/agent-kit/api';
+import { createApiClient } from '@retaxmaster/my-plants-species-schema/agent-kit/api';
 import { resolveSessionWorkspace } from '@retaxmaster/my-plants-species-schema/agent-kit/workspace';
 import { buildSpeciesContext } from '@retaxmaster/my-plants-species-schema/agent-kit/species-context';
 import { loadGardenerContext, WORKSPACE_ENV } from './lib/context.js';
 import { loadPlantDetail, loadPlantProfile, loadSpeciesForOwnedPlant, loadClinicalRecords } from './lib/queries.js';
 import { loadPlantReads } from './lib/plant-reads.js';
+import { loadCarePlan } from './lib/care-plan-read.js';
 
 // One owned plant, in depth (Spec 4 §4.3). The gardener reads a plant to judge its PLACEMENT and MATERIALS —
 // its detail, its profile, its species record, its computed care plan, and the doctor's clinical records as
@@ -44,16 +45,11 @@ async function main(): Promise<void> {
     const clinicalRecords = await loadClinicalRecords(conn, ctx.ownerId, plantId, months);
 
     // The one care read the gardener token may reach: GET /plants/:id/care returns the ALREADY-computed care
-    // plan (due tasks, viability semaphore + reasons, crowding). The API's care-read handler admits the
-    // gardener scope (Spec 4 §10.2 / Task 4.8); the token is refused by every other domain endpoint.
-    let carePlan: unknown = null;
-    try {
-      carePlan = await client.getJson(`/plants/${plantId}/care`);
-    } catch (err) {
-      // A care-plan read failure is not fatal to placement review — record it and continue with what the DB
-      // gave, exactly as the doctor reports a blocked tool rather than faking data.
-      carePlan = { error: err instanceof ApiRequestError ? err.message : String((err as Error)?.message ?? err) };
-    }
+    // plan (due tasks, viability semaphore + reasons, crowding, and the per-task last-done/done-today
+    // history). The API's care-read handler admits the gardener scope (Spec 4 §10.2 / Task 4.8); the token is
+    // refused by every other domain endpoint. Read through the ONE shared seam, which returns the response
+    // VERBATIM and reports a failure as `{ error }` rather than a silent null.
+    const carePlan = await loadCarePlan(client, plantId);
 
     // Part E (spec §9): the plant's care-event history and its progress journal, over the two routes the
     // API marks for BOTH agent scopes. Both are bounded pages, newest first, and the journal is
