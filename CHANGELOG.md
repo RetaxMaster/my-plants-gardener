@@ -7,8 +7,17 @@ plant owner and for whoever operates this agent, not a commit dump.
 
 ### Added
 
+- **The Gardener now reads the per-task history from the care plan — a guaranteed, unpaginated answer
+  to "was this done today?" and "when was it last done?" for all six care tasks.**
+  The computed care plan now carries `taskHistory`, an unwindowed block that names the last-completed date
+  and whether each task (`WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST`) was done on the
+  plant's local calendar day. This is distinct from — and more reliable than — the care-event history read:
+  a fertilize date older than the event page you were given is simply absent from that bounded list but
+  present here. The Gardener's playbook is corrected to read the bare fact from `taskHistory` and reserve
+  the event history for the rich story it tells — why a task was postponed, what symptom was flagged, what
+  happened and when — exactly what the event read is best at.
 - **The Gardener can now read a plant's care-event history and progress journal**, so it can
-  answer *"when was this last fertilized?"* and see what was postponed and why. Each journal
+  see what was postponed and why, and read the details behind every care action. Each journal
   entry carries its **id** (the `entryId` a `progress.update` proposal requires), its recorded
   height in centimetres, health rating, and observations. The care-event history shows every
   care task — water, fertilize, repot, and others — and whether it was done, postponed, or
