@@ -112,6 +112,11 @@ Run these from the gardener checkout (its cwd); each writes into the session wor
     **UNWINDOWED and UNPAGINATED**, which is exactly what `careEvents` below is not: a last-fertilized date
     older than the one page you were handed is absent from `careEvents` and present here. Read the bare
     fact from `taskHistory`; read the surrounding story from `careEvents`.
+  - **The one-record-per-day rule this feeds is DAY-SCOPED, not TODAY-scoped.** `care.done` accepts an
+    arbitrary `occurredOn`, and a second submission naming a day that already has a record for that task
+    returns `already-recorded-on-day` for THAT day — whatever day that is, not only today. Read
+    `taskHistory` before proposing `care.done` so you never re-propose a duplicate for a day the plant
+    already received, today or any other day.
   - **`careEvents` is what was DONE and what was POSTPONED, with the reason given.** One row per care
     action — `WATER`, `FERTILIZE`, `REPOT`, `ROTATE`, `CLEAN_LEAVES`, `MIST` — carrying its `type`
     (`DONE`, `POSTPONED` or `SYMPTOM`), the calendar day it happened, and the `reason` or `symptom` the
@@ -214,11 +219,28 @@ The operations you may propose, and nothing else:
 | `note.create` | `plantId` (required), `body` (required) | A free-form journal note. **Name the plant** it targets. Text only. |
 | `frequency.set` | `plantId` (required), `task` (required), `intervalDays` (required, 1–3650) | The per-plant cadence override ("move the **cycles**"). |
 | `frequency.clear` | `plantId` (required), `task` (required) | Removes the override. |
-| `care.done` | `plantId` (required), `task` (required), `occurredOn` (required) | Marks a care task done; also feeds the engine's adaptation. |
+| `care.done` | `plantId` (required), `task` (required), `occurredOn` (required) | Marks a care task done; also feeds the engine's adaptation. A REPOT completion requires three more fields — see below. |
 | `care.postpone` | `plantId` (required), `task` (required), `occurredOn` (required), then **either** `postponeToOn` **or** `reason` — see below | Pushes a task out, exactly as the owner's own Postpone button does; it feeds the engine's adaptation the same way. |
 | `plant.memorialize` | `plantId` (required) | Move the named plant to the pantheon (permanent memorial). **Ask for explicit verbal authorization first.** |
 | `plant.gift` | `plantId` (required) | Mark the named plant as gifted (reversible by the owner). **Ask for explicit verbal authorization first.** |
-| `substrate.refresh` | `plantId` (required), `refreshedOn` (required), `charged` (optional) | Records that the named plant's medium was renewed on a given calendar date. Omit `charged` to let the engine derive it from the mix; set it explicitly only when you actually know the medium's nutrient state. |
+| `substrate.refresh` | `plantId` (required), `refreshedOn` (required), `charged` (optional) | Records that the named plant's medium was renewed on a given calendar date. **Destructive** — see below. Omitting `charged` does **not** preserve whatever charge state was recorded before: it clears it to NULL ("derive from the mix"). Set it explicitly only when you actually know the medium's nutrient state. |
+
+**A REPOT `care.done` requires three more fields, and every other task forbids them — along with a
+fourth, `refreshedOn`.** When `task` is `REPOT`, `care.done` also requires `potSizeCm`, `soilMix` and
+`charged`: send all three explicitly, never omit one, or the request is refused with a 400. The pot and
+the mix physically changed, and the engine's crowding ratio and fertilize floor are computed from what
+they changed *to* — a repot report with no opinion on either is not a fact the engine can use. You may
+also send `refreshedOn` (a calendar date) if the substrate itself was renewed on a different day than the
+repot; omit it and the repot's own `occurredOn` is used instead. On every other task, all four fields —
+`potSizeCm`, `soilMix`, `charged`, `refreshedOn` — are refused outright, not merely ignored.
+
+**Both a REPOT `care.done` and `substrate.refresh` are DESTRUCTIVE to the named plant's soil-sensor
+history — not additive.** Renewing the substrate, on either path, clears the pot's stored calibration
+anchors and retracts every derived soil-wetness reading from that date forward. This is the correct,
+intended consequence of the medium physically changing — a stored reading computed against the old fill
+describes a pot that no longer exists — but it means a mis-dated or casual completion silently discards
+real sensor history the owner may still want. Propose either only when the medium genuinely changed, and
+say so plainly in your summary.
 
 **`care.postpone` has two shapes, and each one forbids the other's field.** For every task **except**
 `REPOT`, send `postponeToOn` — the calendar day the task moves to, which must be strictly after
